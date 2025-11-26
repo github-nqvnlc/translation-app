@@ -95,6 +95,21 @@ translation-app/
 | `npm run db:seed` | Seed dữ liệu mẫu |
 | `npm run db:reset` | Reset database và seed lại |
 
+## ✅ CI/CD
+
+Kho đã cấu hình GitHub Actions tại `.github/workflows/ci.yml`:
+
+- Mọi Pull Request và push vào `main` sẽ chạy `npm run lint`, `npm run typecheck` và `npm run build`.
+- Với Pull Request, workflow tiếp tục thực thi `npx vercel build` để xác nhận bản build production.
+
+> **Secrets bắt buộc** (thiết lập trong Settings → Secrets → Actions):
+>
+> - `VERCEL_TOKEN`
+> - `VERCEL_ORG_ID`
+> - `VERCEL_PROJECT_ID`
+>
+> Workflow sẽ tự động dừng bước Vercel nếu các secrets này chưa được cấu hình.
+
 ## 📚 Tài liệu
 
 Xem thêm chi tiết trong thư mục `docs/`:

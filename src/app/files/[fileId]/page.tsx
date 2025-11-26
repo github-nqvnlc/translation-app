@@ -121,6 +121,7 @@ export default async function FileDetailPage({ params, searchParams }: FileDetai
         }))}
         filename={file.filename}
         fileId={fileId}
+        language={file.language}
       />
 
       <div className="flex flex-col gap-4">

@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpenCheck, Pencil, Loader2, X, Plus, Trash2 } from "lucide-react";
+import { BookOpenCheck, Pencil, Loader2, X, Plus, Trash2, WandSparkles } from "lucide-react";
+import { DEEPL_FREE_CHARACTER_LIMIT } from "@/lib/constants";
 
 const PAGE_SIZES = [10, 20, 30, 50, 100, 200, 500, 1000];
 
@@ -18,6 +19,7 @@ type Props = {
   entries: TranslationEntryView[];
   tableName?: string;
   tableId: string;
+  targetLanguage?: string;
 };
 
 type ToastState = {
@@ -34,7 +36,7 @@ type ConfirmDialogState = {
   count?: number;
 };
 
-export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) {
+export function TranslationEntriesPanel({ entries, tableName, tableId, targetLanguage }: Props) {
   const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
   const [page, setPage] = useState(1);
   const [selectedDetail, setSelectedDetail] = useState<{
@@ -53,6 +55,19 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
   }>({ sourceText: "", translatedText: "", description: "", references: "" });
   const [saving, setSaving] = useState(false);
   const [pending, setPending] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [batchTranslating, setBatchTranslating] = useState(false);
+  const [overwriteExisting, setOverwriteExisting] = useState(false);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  const [batchSummary, setBatchSummary] = useState<{
+    translatedCount: number;
+    skippedCount: number;
+    missingCount: number;
+    totalCharacters: number;
+    limit: number;
+    message?: string;
+  } | null>(null);
   const [toast, setToast] = useState<ToastState>({ show: false, success: false, message: "" });
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
     show: false,
@@ -67,6 +82,15 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
   const canDeleteSelected = selectedIds.size > 0;
   const canDeleteAll = entries.length > 0;
   const allSelected = entries.length > 0 && selectedIds.size === entries.length;
+  const selectedEntries = useMemo(
+    () => entries.filter((entry) => selectedIds.has(entry.id)),
+    [entries, selectedIds],
+  );
+  const selectedCharacterCount = useMemo(
+    () => selectedEntries.reduce((sum, entry) => sum + entry.sourceText.length, 0),
+    [selectedEntries],
+  );
+  const exceedsFreeLimit = selectedCharacterCount > DEEPL_FREE_CHARACTER_LIMIT;
 
   const maxPage = Math.max(1, Math.ceil(entries.length / pageSize));
   const boundedPage = Math.min(page, maxPage);
@@ -156,6 +180,117 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
       alert("Không thể lưu thay đổi. Vui lòng thử lại.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeepLTranslate = async () => {
+    if (!targetLanguage || !form.sourceText.trim()) {
+      return;
+    }
+
+    try {
+      setTranslating(true);
+      setToast({ show: false, success: false, message: "" });
+
+      const response = await fetch("/api/deepl/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: form.sourceText.trim(),
+          targetLang: targetLanguage,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Không thể lấy bản dịch từ DeepL");
+      }
+
+      const translated = result?.data?.text;
+
+      if (typeof translated !== "string") {
+        throw new Error("DeepL trả về dữ liệu không hợp lệ");
+      }
+
+      setForm((prev) => ({ ...prev, translatedText: translated }));
+      setToast({
+        show: true,
+        success: true,
+        message: "Đã cập nhật bản dịch từ DeepL",
+      });
+    } catch (error) {
+      setToast({
+        show: true,
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Không thể lấy bản dịch từ DeepL. Vui lòng thử lại.",
+      });
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const openBatchDialog = () => {
+    setBatchDialogOpen(true);
+    setBatchError(null);
+    setBatchSummary(null);
+  };
+
+  const closeBatchDialog = () => {
+    if (batchTranslating) return;
+    setBatchDialogOpen(false);
+    setBatchError(null);
+    setBatchSummary(null);
+    setOverwriteExisting(false);
+  };
+
+  const handleBatchTranslate = async () => {
+    if (!targetLanguage || selectedIds.size === 0 || exceedsFreeLimit) {
+      return;
+    }
+
+    try {
+      setBatchTranslating(true);
+      setBatchError(null);
+      setToast({ show: false, success: false, message: "" });
+      setBatchSummary(null);
+
+      const response = await fetch(`/api/translation-tables/${tableId}/entries/batch-translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entryIds: Array.from(selectedIds),
+          targetLang: targetLanguage,
+          overwriteExisting,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Không thể dịch hàng loạt");
+      }
+
+      setBatchSummary(result?.data);
+      setToast({
+        show: true,
+        success: true,
+        message: `Đã cập nhật ${result?.data?.translatedCount ?? 0} bản dịch bằng DeepL`,
+      });
+
+      router.refresh();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Không thể dịch hàng loạt. Vui lòng thử lại.";
+      setBatchError(message);
+      setToast({
+        show: true,
+        success: false,
+        message,
+      });
+    } finally {
+      setBatchTranslating(false);
     }
   };
 
@@ -293,27 +428,83 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
           <p className="text-sm text-slate-300">
             Chọn dòng để xem chi tiết hoặc chỉnh sửa nội dung.
           </p>
+          <p
+            className={`mt-1 min-h-[18px] text-xs transition-colors ${
+              selectedIds.size > 0 && exceedsFreeLimit ? "text-rose-400" : "text-slate-400"
+            }`}
+          >
+            {selectedIds.size > 0 ? (
+              <>
+                Ký tự dự kiến gửi tới DeepL:{" "}
+                <strong>
+                  {selectedCharacterCount.toLocaleString()} / {DEEPL_FREE_CHARACTER_LIMIT.toLocaleString()}
+                </strong>{" "}
+                (gói Free)
+              </>
+            ) : (
+              "Chọn dòng để kích hoạt dịch hàng loạt bằng DeepL."
+            )}
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col gap-3 md:items-end">
+          <div className="flex items-center gap-2 self-end text-xs text-slate-400">
+            <label className="font-semibold">Số dòng/trang</label>
+            <select
+              value={pageSize}
+              onChange={(event) => handlePageSizeChange(Number(event.target.value))}
+              className="h-8 cursor-pointer rounded-full border border-white/10 bg-transparent px-2 text-xs text-white"
+            >
+              {PAGE_SIZES.map((size) => (
+                <option key={size} value={size} className="bg-slate-900 text-white">
+                  {size} dòng
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           {entries.length > 0 && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs">
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={toggleSelectAll}
-                className="cursor-pointer rounded border-white/20 bg-slate-900 text-sky-500 focus:ring-2 focus:ring-sky-500"
+                className="size-4 cursor-pointer rounded border border-slate-500 bg-slate-900 text-sky-500 accent-sky-500 transition focus:ring-2 focus:ring-sky-500 checked:border-sky-400 checked:bg-sky-500"
               />
-              <span className="text-sm text-slate-400">
+              <span className="text-slate-400">
                 {selectedIds.size > 0 ? `Đã chọn ${selectedIds.size} / ${entries.length}` : "Chọn tất cả"}
               </span>
             </div>
           )}
+          <button
+            type="button"
+            onClick={openBatchDialog}
+            disabled={
+              batchTranslating ||
+              translating ||
+              !targetLanguage ||
+              exceedsFreeLimit ||
+              selectedIds.size === 0
+            }
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-sky-500/40 bg-transparent px-3 py-1.5 text-xs font-semibold text-sky-300 transition hover:border-sky-400 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+            title={
+              !targetLanguage
+                ? "Chưa cấu hình ngôn ngữ cho bảng dịch"
+                : selectedIds.size === 0
+                  ? "Chọn ít nhất một dòng để dịch bằng DeepL"
+                  : exceedsFreeLimit
+                    ? "Số ký tự vượt giới hạn DeepL free"
+                    : "Dịch các dòng đã chọn bằng DeepL"
+            }
+          >
+            {batchTranslating ? <Loader2 className="size-4 animate-spin" /> : <WandSparkles className="size-4" />}
+            Dịch hàng loạt
+          </button>
           {canDeleteSelected && (
             <button
               type="button"
               onClick={handleDeleteSelected}
               disabled={pending}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-red-500/30 bg-transparent px-3 py-1.5 text-xs font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Trash2 className="size-4" />
               Xóa {selectedIds.size} mục đã chọn
@@ -324,7 +515,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
               type="button"
               onClick={handleDeleteAll}
               disabled={pending}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-red-500/30 bg-transparent px-3 py-1.5 text-xs font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Trash2 className="size-4" />
               Xóa tất cả
@@ -333,23 +524,12 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-transparent px-4 py-2 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/5"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-transparent px-3 py-1.5 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/5"
           >
             <Plus className="size-4" />
             Thêm mới
           </button>
-          <label className="text-sm font-medium text-slate-500">Số dòng/trang</label>
-          <select
-            value={pageSize}
-            onChange={(event) => handlePageSizeChange(Number(event.target.value))}
-            className="cursor-pointer rounded-full border border-white/10 bg-transparent px-2 py-2 text-sm text-white"
-          >
-            {PAGE_SIZES.map((size) => (
-              <option key={size} value={size} className="bg-slate-900 text-white">
-                {size} dòng
-              </option>
-            ))}
-          </select>
+          </div>
         </div>
       </div>
 
@@ -386,7 +566,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelect(entry.id)}
-                          className="cursor-pointer rounded border-white/20 bg-slate-900 text-sky-500 focus:ring-2 focus:ring-sky-500"
+                          className="size-4 cursor-pointer rounded border border-slate-500 bg-slate-900 text-sky-500 accent-sky-500 transition focus:ring-2 focus:ring-sky-500 checked:border-sky-400 checked:bg-sky-500"
                         />
                       </td>
                       <td
@@ -537,7 +717,27 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-slate-500">Translated Text *</label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-semibold text-slate-500">Translated Text *</label>
+                  <button
+                    type="button"
+                    onClick={handleDeepLTranslate}
+                    disabled={
+                      translating ||
+                      !targetLanguage ||
+                      !form.sourceText.trim()
+                    }
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                    title={
+                      targetLanguage
+                        ? "Dùng DeepL để dịch nhanh từ Source Text"
+                        : "Thiếu target language trong bảng dịch"
+                    }
+                  >
+                    {translating ? <Loader2 className="size-3 animate-spin" /> : <WandSparkles className="size-3" />}
+                    DeepL
+                  </button>
+                </div>
                 <textarea
                   value={form.translatedText}
                   onChange={(e) => handleChange("translatedText", e.target.value)}
@@ -588,6 +788,111 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
         </div>
       ) : null}
 
+      {batchDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4 py-8">
+          <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-slate-950 p-6 text-slate-100 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-500">DeepL Batch</p>
+                <h3 className="text-lg font-semibold">Dịch hàng loạt {selectedIds.size} dòng</h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeBatchDialog}
+                disabled={batchTranslating}
+                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-white/10 text-slate-400 hover:border-white/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                title="Đóng"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3 text-sm text-slate-300">
+              <p>
+                Ngôn ngữ đích: <strong>{targetLanguage ?? "Chưa cấu hình"}</strong>
+              </p>
+              <p>
+                Ký tự dự kiến:{" "}
+                <strong
+                  className={exceedsFreeLimit ? "text-rose-400" : "text-slate-100"}
+                >
+                  {selectedCharacterCount.toLocaleString()} /{" "}
+                  {DEEPL_FREE_CHARACTER_LIMIT.toLocaleString()}
+                </strong>{" "}
+                (giới hạn gói Free)
+              </p>
+              {!overwriteExisting ? (
+                <p className="text-xs text-slate-400">
+                  * Chỉ dịch các dòng chưa có `Translated Text`. Bật tùy chọn bên dưới để ghi đè.
+                </p>
+              ) : null}
+              <label className="flex items-center gap-2 text-sm text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={overwriteExisting}
+                  onChange={(e) => setOverwriteExisting(e.target.checked)}
+                  disabled={batchTranslating}
+                  className="h-4 w-4 rounded border-white/20 bg-slate-900 text-sky-500 focus:ring-2 focus:ring-sky-500"
+                />
+                Ghi đè bản dịch đã có
+              </label>
+              {batchError ? <p className="text-sm text-rose-400">{batchError}</p> : null}
+              {batchSummary ? (
+                <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 text-xs text-slate-300">
+                  <p>Kết quả:</p>
+                  <ul className="mt-2 space-y-1">
+                    <li>
+                      • Đã dịch: <strong>{batchSummary.translatedCount}</strong>
+                    </li>
+                    <li>
+                      • Bỏ qua (đã có bản dịch): <strong>{batchSummary.skippedCount}</strong>
+                    </li>
+                    <li>
+                      • Không tìm thấy: <strong>{batchSummary.missingCount}</strong>
+                    </li>
+                    <li>
+                      • Ký tự đã gửi:{" "}
+                      <strong>
+                        {batchSummary.totalCharacters.toLocaleString()} /{" "}
+                        {batchSummary.limit.toLocaleString()}
+                      </strong>
+                    </li>
+                  </ul>
+                  {batchSummary.message ? (
+                    <p className="mt-2 text-slate-400">{batchSummary.message}</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeBatchDialog}
+                disabled={batchTranslating}
+                className="cursor-pointer rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={handleBatchTranslate}
+                disabled={
+                  batchTranslating ||
+                  exceedsFreeLimit ||
+                  !targetLanguage ||
+                  selectedIds.size === 0
+                }
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-sky-500 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {batchTranslating ? <Loader2 className="size-4 animate-spin" /> : <WandSparkles className="size-4" />}
+                {batchTranslating ? "Đang dịch..." : "Bắt đầu dịch"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Confirm Dialog */}
       {confirmDialog.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -607,7 +912,8 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
             <div className="mb-6 space-y-2">
               {confirmDialog.type === "single" && confirmDialog.entryText ? (
                 <p className="text-slate-300">
-                  Bạn có chắc chắn muốn xóa entry <strong>"{confirmDialog.entryText}"</strong>?
+                  Bạn có chắc chắn muốn xóa entry{" "}
+                  <strong>&ldquo;{confirmDialog.entryText}&rdquo;</strong>?
                 </p>
               ) : confirmDialog.type === "multiple" ? (
                 <p className="text-slate-300">
@@ -619,7 +925,8 @@ export function TranslationEntriesPanel({ entries, tableName, tableId }: Props) 
                 </p>
               )}
               <p className="text-sm text-slate-400">
-                Hành động này không thể hoàn tác. Vui lòng gõ <strong>"DELETE"</strong> để xác nhận.
+                Hành động này không thể hoàn tác. Vui lòng gõ{" "}
+                <strong>&ldquo;DELETE&rdquo;</strong> để xác nhận.
               </p>
             </div>
 

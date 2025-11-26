@@ -124,6 +124,7 @@ export default async function TranslationDetailPage({
         }))}
         tableName={table.name}
         tableId={id}
+        targetLanguage={table.language}
       />
     </div>
   );

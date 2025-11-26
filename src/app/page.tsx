@@ -1,36 +1,57 @@
 import Link from "next/link";
-import { ArrowRight, FileText, Search, Edit, Download, Languages } from "lucide-react";
+import {
+  ArrowRight,
+  FileText,
+  Edit,
+  Download,
+  Languages,
+  Sparkles,
+  ShieldCheck,
+  UploadCloud,
+} from "lucide-react";
 
 const highlights = [
   {
     title: "Quản lý file dịch thuật",
     description:
-      "Tải lên, xem danh sách và quản lý các file .po của bạn một cách dễ dàng. Tìm kiếm nhanh chóng theo tên file, ngôn ngữ hoặc metadata.",
+      "Tải lên, xem danh sách, kiểm tra metadata và theo dõi tiến trình dịch trên một bảng điều khiển thống nhất. Mỗi file đều có bộ lọc, phân trang và thống kê rõ ràng.",
     icon: FileText,
   },
   {
     title: "Bảng dịch tùy chỉnh",
     description:
-      "Tạo và quản lý các bảng dịch riêng biệt không phụ thuộc vào file .po. Xây dựng kho dịch của riêng bạn với CRUD đầy đủ.",
+      "Tạo các bảng dịch độc lập với file .po để xây dựng kho thuật ngữ riêng. Hỗ trợ CRUD đầy đủ, chia sẻ cho nhiều dự án và xuất dữ liệu bất kỳ lúc nào.",
     icon: Languages,
   },
   {
     title: "Chỉnh sửa bản dịch",
     description:
-      "Xem và chỉnh sửa từng bản dịch trực tiếp trên giao diện. Cập nhật msgid, msgstr, ngữ cảnh và vị trí áp dụng một cách linh hoạt.",
+      "Modal chỉnh sửa giàu thông tin giúp bạn cập nhật msgid/msgstr, mô tả và vị trí áp dụng chỉ với vài cú click. Hỗ trợ toast trạng thái và refresh tức thời.",
     icon: Edit,
+  },
+  {
+    title: "DeepL tích hợp sâu",
+    description:
+      "Nút DeepL xuất hiện trong cả modal chỉnh sửa và toolbar danh sách. Bạn có thể dịch tức thời một dòng hoặc chọn hàng loạt để AI tự điền, đồng thời theo dõi hạn mức ký tự.",
+    icon: Sparkles,
+  },
+  {
+    title: "Kiểm soát chất lượng",
+    description:
+      "Quy trình xác nhận xóa, cảnh báo ký tự và lịch sử thông báo giúp bạn tự tin triển khai cho team lớn. Các thao tác rủi ro đều được yêu cầu xác nhận rõ ràng.",
+    icon: ShieldCheck,
   },
   {
     title: "Xuất file đa định dạng",
     description:
-      "Xuất dữ liệu ra nhiều định dạng khác nhau: .po, CSV, Excel (.xlsx) và JSON. Phù hợp với mọi nhu cầu làm việc của bạn.",
+      "Xuất dữ liệu ra .po, CSV, Excel (.xlsx) hoặc JSON chỉ với một nút bấm. Hệ thống tự động giữ nguyên thứ tự dòng và mã hóa chuẩn UTF-8.",
     icon: Download,
   },
   {
-    title: "Tìm kiếm thông minh",
+    title: "Tìm kiếm & upload thông minh",
     description:
-      "Tìm kiếm trong toàn bộ nội dung dịch: msgid, msgstr, mô tả ngữ cảnh và vị trí áp dụng. Lọc kết quả theo nhiều tiêu chí khác nhau.",
-    icon: Search,
+      "Upload nhiều file liên tiếp, tra cứu bằng từ khóa, ngôn ngữ hoặc metadata. Bộ lọc hỗ trợ cả msgid, msgstr, mô tả ngữ cảnh và references.",
+    icon: UploadCloud,
   },
 ];
 
@@ -52,6 +73,24 @@ const quickLinks = [
   },
 ];
 
+const featureNarratives = [
+  {
+    heading: "DeepL + quy trình thủ công",
+    body:
+      "Ứng dụng kết hợp cả dịch tự động và thao tác thủ công. Bạn có thể dịch nhanh để có bản nháp, sau đó tinh chỉnh từng câu theo đúng văn phong doanh nghiệp. Giới hạn 500.000 ký tự/tháng của gói DeepL Free được hiển thị rõ ràng ngay trong giao diện để tránh lãng phí.",
+  },
+  {
+    heading: "Một trung tâm thống nhất",
+    body:
+      "Từ tải file .po, quản lý bảng dịch, đến export đa định dạng đều nằm trong cùng một không gian. Mọi trang đều hỗ trợ phân trang, tìm kiếm theo ngữ cảnh và hiển thị metadata quan trọng để bạn không bỏ sót thông tin nào.",
+  },
+  {
+    heading: "An toàn và dễ mở rộng",
+    body:
+      "Các thao tác nguy hiểm (xóa hàng loạt, ghi đè bản dịch) đều yêu cầu xác nhận, giúp giảm rủi ro khi làm việc nhóm. Kiến trúc Next.js + Prisma dễ dàng mở rộng thêm API hoặc tích hợp CI/CD sau này.",
+  },
+];
+
 export default function WelcomePage() {
   return (
     <section className="mx-auto flex min-h-[calc(100vh-120px)] w-full max-w-5xl flex-col gap-12 px-4 py-16 text-slate-100 md:px-8">
@@ -63,8 +102,10 @@ export default function WelcomePage() {
           <h1 className="text-7xl font-black leading-tight text-white md:text-6xl lg:text-7xl">
             Quản lý bản <br /> dịch chuyên nghiệp
           </h1>
-          <p className="hero-description mx-auto max-w-2xl text-xl text-slate-300 md:text-2xl">
-            Quản lý, chỉnh sửa và xuất file dịch thuật một cách dễ dàng và hiệu quả
+          <p className="hero-description mx-auto max-w-3xl text-lg text-slate-300 md:text-xl">
+            Từ upload file .po đến quản lý bảng dịch tùy chỉnh, mọi tính năng đều được tối ưu
+            cho quy trình dịch chuyên nghiệp: DeepL tích hợp sẵn, CRUD đầy đủ, tìm kiếm nhanh
+            và export đa định dạng.
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
@@ -96,42 +137,17 @@ export default function WelcomePage() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/60 to-slate-900/40 p-8 text-center backdrop-blur-sm">
-        <h3 className="mb-4 text-2xl font-semibold text-white">Bắt đầu sử dụng</h3>
-        <div className="mx-auto mt-6 max-w-2xl space-y-3 text-left text-slate-300">
-          <div className="flex items-start gap-3">
-            <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold">
-              1
-            </span>
-            <div>
-              <p className="font-medium text-white">Tải file .po hoặc tạo bảng dịch mới</p>
-              <p className="text-sm text-slate-400">
-                Upload file .po từ máy tính hoặc tạo bảng dịch tùy chỉnh để bắt đầu quản lý
+      <div className="rounded-3xl border border-white/10 bg-slate-950/40 p-8">
+        <h3 className="text-2xl font-semibold text-white">Tại sao đội ngũ dịch thuật yêu thích?</h3>
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
+          {featureNarratives.map((item) => (
+            <div key={item.heading} className="space-y-2">
+              <p className="text-sm font-semibold uppercase tracking-wide text-sky-300">
+                {item.heading}
               </p>
+              <p className="text-sm leading-relaxed text-slate-300">{item.body}</p>
             </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold">
-              2
-            </span>
-            <div>
-              <p className="font-medium text-white">Xem và chỉnh sửa bản dịch</p>
-              <p className="text-sm text-slate-400">
-                Duyệt qua các bản dịch, thêm mới, chỉnh sửa hoặc xóa entries một cách dễ dàng
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold">
-              3
-            </span>
-            <div>
-              <p className="font-medium text-white">Xuất file đã chỉnh sửa</p>
-              <p className="text-sm text-slate-400">
-                Tải về file .po, CSV, Excel hoặc JSON với tất cả các thay đổi của bạn
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>
