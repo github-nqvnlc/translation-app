@@ -142,3 +142,70 @@ function parseHeaderKeyValues(msgstrParts: string[]): Record<string, string> {
   return headers;
 }
 
+function escapePoString(text: string): string {
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\t/g, "\\t")
+    .replace(/\r/g, "\\r");
+}
+
+function formatPoString(text: string): string {
+  if (!text) {
+    return '""';
+  }
+
+  const escaped = escapePoString(text);
+  return `"${escaped}"`;
+}
+
+export function serializePo(metadata: Record<string, string>, entries: PoEntryRecord[]): string {
+  const lines: string[] = [];
+
+  lines.push('msgid ""');
+  lines.push('msgstr ""');
+
+  const metadataLines: string[] = [];
+  for (const [key, value] of Object.entries(metadata)) {
+    const escapedValue = escapePoString(value);
+    metadataLines.push(`"${key}: ${escapedValue}\\n"`);
+  }
+
+  if (metadataLines.length > 0) {
+    lines.push(...metadataLines);
+  }
+
+  lines.push("");
+
+  for (const entry of entries) {
+    if (entry.description) {
+      const descLines = entry.description.split("\n");
+      for (const descLine of descLines) {
+        if (descLine.trim()) {
+          lines.push(`#. ${descLine.trim()}`);
+        }
+      }
+    }
+
+    if (entry.references) {
+      const refLines = entry.references.split("\n");
+      for (const refLine of refLines) {
+        if (refLine.trim()) {
+          lines.push(`#: ${refLine.trim()}`);
+        }
+      }
+    }
+
+    const msgidFormatted = formatPoString(entry.msgid);
+    lines.push(`msgid ${msgidFormatted}`);
+
+    const msgstrFormatted = formatPoString(entry.msgstr);
+    lines.push(`msgstr ${msgstrFormatted}`);
+
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+

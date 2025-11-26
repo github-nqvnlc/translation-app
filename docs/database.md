@@ -20,6 +20,7 @@ DATABASE_URL="file:./prisma/dev.db"
 - `datasource.url`: đọc từ biến môi trường.
 
 ## Schema hiện tại
+
 ### `PoFile`
 - `id` (String cuid, khoá chính)
 - `filename` (String)
@@ -42,6 +43,26 @@ DATABASE_URL="file:./prisma/dev.db"
 - `createdAt` (DateTime, default `now()`)
 - `@@index([fileId])` để truy vấn nhanh khi render viewer
 
+### `TranslationTable`
+- `id` (String cuid, khoá chính)
+- `name` (String) - Tên bảng dịch
+- `language` (String) - Ngôn ngữ của bảng dịch
+- `description` (String?, tùy chọn) - Mô tả về bảng dịch
+- `createdAt` (DateTime, default `now()`)
+- `updatedAt` (DateTime, auto update)
+- Quan hệ 1-n với `TranslationEntry`
+
+### `TranslationEntry`
+- `id` (Int, auto increment)
+- `sourceText` (String) - Văn bản gốc (tương đương msgid)
+- `translatedText` (String) - Bản dịch (tương đương msgstr)
+- `description` (String?, tùy chọn) - Mô tả ngữ cảnh
+- `references` (String?, tùy chọn) - Vị trí áp dụng
+- `tableId` (String) tham chiếu `TranslationTable`
+- `createdAt` (DateTime, default `now()`)
+- `updatedAt` (DateTime, auto update)
+- `@@index([tableId])` để truy vấn nhanh khi render entries
+
 ## Tạo/áp dụng migration
 ```bash
 npm run prisma:migrate          # tạo migration mới khi schema thay đổi
@@ -53,7 +74,12 @@ npm run prisma:migrate          # tạo migration mới khi schema thay đổi
 ```bash
 npm run prisma:generate
 ```
-- Client xuất hiện trong `node_modules/@prisma/client` và được dùng tại `src/lib/prisma.ts`.
+- Client xuất hiện trong `node_modules/.prisma/client` và được dùng tại `src/lib/prisma.ts`.
+- ⚠️ **QUAN TRỌNG**: Bạn PHẢI chạy lệnh này:
+  - Sau khi cài đặt `npm install` lần đầu
+  - Sau mỗi lần thay đổi `prisma/schema.prisma`
+  - Sau khi chạy `npm run prisma:migrate`
+- Nếu không chạy, ứng dụng sẽ báo lỗi: `Cannot find module '.prisma/client/default'`
 
 ## Khởi tạo Prisma Client với adapter
 `src/lib/prisma.ts`:

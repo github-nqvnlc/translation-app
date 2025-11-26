@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpenCheck, Pencil, Loader2 } from "lucide-react";
+import { BookOpenCheck, Pencil, Loader2, X } from "lucide-react";
 
 const PAGE_SIZES = [10, 20, 30, 50, 100, 200, 500, 1000, 2000, 3000, 5000, 10000, 20000, 50000];
 
@@ -29,9 +29,12 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
   } | null>(null);
 
   const [editing, setEditing] = useState<PoEntryView | null>(null);
-  const [form, setForm] = useState<{ msgid: string; msgstr: string; description: string; references: string }>(
-    { msgid: "", msgstr: "", description: "", references: "" }
-  );
+  const [form, setForm] = useState<{
+    msgid: string;
+    msgstr: string;
+    description: string;
+    references: string;
+  }>({ msgid: "", msgstr: "", description: "", references: "" });
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
@@ -117,9 +120,7 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
     <section className="rounded-3xl border border-white/10 bg-slate-950/60 p-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs  text-slate-400">
-            Viewer msgid/msgstr
-          </p>
+          <p className="text-xs text-slate-400">Viewer msgid/msgstr</p>
           <h2 className="text-2xl font-semibold text-white">
             {filename ? `Đang xem: ${filename}` : "Chưa chọn tệp"}
           </h2>
@@ -128,13 +129,11 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="text-sm font-medium  text-slate-500">
-            Số dòng/trang
-          </label>
+          <label className="text-sm font-medium text-slate-500">Số dòng/trang</label>
           <select
             value={pageSize}
             onChange={(event) => handlePageSizeChange(Number(event.target.value))}
-            className="rounded-full border border-white/10 bg-transparent px-4 py-2 text-sm text-white"
+            className="rounded-full border border-white/10 bg-transparent px-2 py-2 text-sm text-white"
           >
             {PAGE_SIZES.map((size) => (
               <option key={size} value={size} className="bg-slate-900 text-white">
@@ -145,73 +144,79 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
         </div>
       </div>
 
-      <div className="mt-6 max-h-[520px] overflow-y-auto rounded-2xl border border-white/10">
-        <table className="min-w-full table-fixed divide-y divide-white/5">
-          <thead className="sticky top-0 z-10 bg-slate-950 text-left text-xs font-semibold uppercase text-slate-300">
-            <tr>
-              <th className="max-w-[500px] px-6 py-3">msgid</th>
-              <th className="max-w-[500px] px-6 py-3">msgstr</th>
-              <th className="max-w-[120px] px-6 py-3">action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {!entries.length ? (
+      <div className="mt-6 max-h-[520px] overflow-hidden rounded-2xl border border-white/10">
+        <div className="table-scrollbar max-h-[520px] overflow-y-auto">
+          <table className="min-w-full table-fixed divide-y divide-white/5">
+            <thead className="sticky top-0 z-10 bg-slate-950 text-left text-xs font-semibold text-slate-300 uppercase">
               <tr>
-                <td colSpan={3} className="px-6 py-12 text-center text-slate-400">
-                  Chưa có dữ liệu. Hãy chọn hoặc tải một tệp .po.
-                </td>
+                <th className="max-w-[500px] px-6 py-3">msgid</th>
+                <th className="max-w-[500px] px-6 py-3">msgstr</th>
+                <th className="max-w-[120px] px-6 py-3">action</th>
               </tr>
-            ) : (
-              visible.map((entry, idx) => (
-                <tr key={entry.id} className="text-sm text-slate-100 hover:bg-white/5">
-                  <td className="max-w-[500px] cursor-pointer px-6 py-4" onClick={() => openDetail("msgid", entry.msgid)}>
-                    <p className="truncate" title={entry.msgid}>
-                      {entry.msgid}
-                    </p>
-                    {entry.description ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-slate-400">{entry.description}</p>
-                    ) : null}
-                  </td>
-                  <td
-                    className="max-w-[500px] cursor-pointer px-6 py-4 text-slate-300"
-                    onClick={() => openDetail("msgstr", entry.msgstr)}
-                  >
-                    <p className="truncate" title={entry.msgstr}>
-                      {entry.msgstr}
-                    </p>
-                    {entry.references ? (
-                      <p className="mt-1 text-[11px] text-slate-500 line-clamp-2">
-                        {entry.references.split("\n").join(" · ")}
-                      </p>
-                    ) : null}
-                  </td>
-                  <td className="max-w-[120px] px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        title="Sửa"
-                        onClick={() => openEdit(entry)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-slate-200 hover:border-white/40"
-                      >
-                        <Pencil className="size-3" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Xem chi tiết"
-                        onClick={() => openFullDetail(entry)}
-                        className="inline-flex items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-white/40"
-                      >
-                        <BookOpenCheck className="size-3" /> #{start + idx + 1}
-                      </button>
-                    </div>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {!entries.length ? (
+                <tr>
+                  <td colSpan={3} className="px-6 py-12 text-center text-slate-400">
+                    Chưa có dữ liệu. Hãy chọn hoặc tải một tệp .po.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                visible.map((entry, idx) => (
+                  <tr key={entry.id} className="text-sm text-slate-100 hover:bg-white/5">
+                    <td
+                      className="max-w-[500px] cursor-pointer px-6 py-4"
+                      onClick={() => openDetail("msgid", entry.msgid)}
+                    >
+                      <p className="truncate" title={entry.msgid}>
+                        {entry.msgid}
+                      </p>
+                      {entry.description ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-slate-400">
+                          {entry.description}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td
+                      className="max-w-[500px] cursor-pointer px-6 py-4 text-slate-300"
+                      onClick={() => openDetail("msgstr", entry.msgstr)}
+                    >
+                      <p className="truncate" title={entry.msgstr}>
+                        {entry.msgstr}
+                      </p>
+                      {entry.references ? (
+                        <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">
+                          {entry.references.split("\n").join(" · ")}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="max-w-[120px] px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          title="Sửa"
+                          onClick={() => openEdit(entry)}
+                          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-white/10 text-slate-200 hover:border-white/40"
+                        >
+                          <Pencil className="size-3" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Xem chi tiết"
+                          onClick={() => openFullDetail(entry)}
+                          className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-white/40"
+                        >
+                          <BookOpenCheck className="size-3" /> #{start + idx + 1}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-
       <div className="mt-6 flex flex-col gap-3 text-sm text-slate-300 md:flex-row md:items-center md:justify-between">
         <p>
           Hiển thị {entries.length ? `${start + 1}-${end}` : "0-0"} / {entries.length} bản ghi
@@ -221,7 +226,7 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
             type="button"
             onClick={() => setPage(Math.max(1, boundedPage - 1))}
             disabled={boundedPage <= 1}
-            className="rounded-full border border-white/10 px-4 py-2 text-white transition hover:border-white/40 disabled:cursor-not-allowed disabled:border-white/5 disabled:text-slate-500"
+            className="cursor-pointer rounded-full border border-white/10 px-4 py-2 text-white transition hover:border-white/40 disabled:cursor-not-allowed disabled:border-white/5 disabled:text-slate-500"
           >
             Trước
           </button>
@@ -229,7 +234,7 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
             type="button"
             onClick={() => setPage(Math.min(maxPage, boundedPage + 1))}
             disabled={boundedPage >= maxPage}
-            className="rounded-full border border-white/10 px-4 py-2 text-white transition hover:border-white/40 disabled:cursor-not-allowed disabled:border-white/5 disabled:text-slate-500"
+            className="cursor-pointer rounded-full border border-white/10 px-4 py-2 text-white transition hover:border-white/40 disabled:cursor-not-allowed disabled:border-white/5 disabled:text-slate-500"
           >
             Sau
           </button>
@@ -241,17 +246,16 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
           <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-slate-950 p-6 text-slate-100 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold  text-slate-500">
-                  {selectedDetail.label}
-                </p>
+                <p className="text-xs font-semibold text-slate-500">{selectedDetail.label}</p>
                 <p className="text-lg font-semibold">Chi tiết chuỗi dịch</p>
               </div>
               <button
                 type="button"
                 onClick={closeDetail}
-                className="rounded-full border border-white/10 px-3 py-1 text-sm font-semibold text-slate-300 hover:border-white/40 hover:text-white"
+                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-white/10 text-slate-300 hover:border-white/40 hover:text-white"
+                title="Đóng"
               >
-                Đóng
+                <X className="size-4" />
               </button>
             </div>
             <textarea
@@ -275,9 +279,10 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
                 type="button"
                 onClick={closeEdit}
                 disabled={saving}
-                className="rounded-full border border-white/10 px-3 py-1 text-sm font-semibold text-slate-500 hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-white/10 text-slate-500 hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                title="Đóng"
               >
-                Đóng
+                <X className="size-4" />
               </button>
             </div>
 
@@ -299,7 +304,9 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-slate-500">Ngữ cảnh (description)</label>
+                <label className="text-xs font-semibold text-slate-500">
+                  Ngữ cảnh (description)
+                </label>
                 <textarea
                   value={form.description}
                   onChange={(e) => handleChange("description", e.target.value)}
@@ -307,7 +314,9 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-slate-500">Vị trí áp dụng (references)</label>
+                <label className="text-xs font-semibold text-slate-500">
+                  Vị trí áp dụng (references)
+                </label>
                 <textarea
                   value={form.references}
                   onChange={(e) => handleChange("references", e.target.value)}
@@ -321,7 +330,7 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
                 type="button"
                 onClick={closeEdit}
                 disabled={saving}
-                className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="cursor-pointer rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Hủy
               </button>
@@ -329,7 +338,7 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 className="size-4 animate-spin" /> : null}
                 Lưu thay đổi
@@ -341,4 +350,3 @@ export function PoEntriesPanel({ entries, filename, fileId }: Props) {
     </section>
   );
 }
-

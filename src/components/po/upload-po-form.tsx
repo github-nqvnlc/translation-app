@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { uploadPoFile } from "@/app/actions/po-actions";
 
 type UploadState = Awaited<ReturnType<typeof uploadPoFile>>;
@@ -18,8 +19,15 @@ export function UploadPoForm({ showInlineStatus = false }: UploadPoFormProps) {
   const [state, action, pending] = useActionState(uploadPoFile, initialState);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  const router = useRouter();
   const toastKey = state?.message ? `${Number(state.success)}-${state.message}` : null;
   const showToast = toastKey !== null && dismissedKey !== toastKey;
+
+  useEffect(() => {
+    if (state?.success && state?.fileId) {
+      router.push(`/files/${state.fileId}`);
+    }
+  }, [state?.success, state?.fileId, router]);
 
   const ellipsizeMiddle = (text: string, max = 10) => {
     if (text.length <= max) return text;
@@ -35,7 +43,7 @@ export function UploadPoForm({ showInlineStatus = false }: UploadPoFormProps) {
     : ellipsizeMiddle(selectedFileName ?? "Chọn tệp .po", 12);
 
   return (
-    <form action={action} className="space-y-4" encType="multipart/form-data">
+    <form action={action} className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">Tải tệp .po mới</h2>
@@ -65,7 +73,7 @@ export function UploadPoForm({ showInlineStatus = false }: UploadPoFormProps) {
         <button
           type="submit"
           disabled={pending}
-          className="w-40 justify-center inline-flex items-center gap-2 rounded-full bg-sky-500 px-6 py-2 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-500"
+          className="w-40 justify-center inline-flex cursor-pointer items-center gap-2 rounded-full bg-sky-500 px-6 py-2 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-500"
         >
           {pending ? "Đang xử lý..." : "Upload tệp"}
         </button>
@@ -101,7 +109,7 @@ export function UploadPoForm({ showInlineStatus = false }: UploadPoFormProps) {
             <button
               type="button"
               onClick={() => setDismissedKey(toastKey)}
-              className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-medium text-white/80 hover:bg-white/20"
+              className="cursor-pointer rounded-md bg-white/10 px-2 py-0.5 text-xs font-medium text-white/80 hover:bg-white/20"
             >
               Đóng
             </button>

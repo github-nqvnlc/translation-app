@@ -1,5 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Momo+Signature&family=Momo+Trust+Display&family=Momo+Trust+Sans:wght@200..800&display=swap');
 @import "tailwindcss";
-
 :root {
   --background: #010b19;
   --background-secondary: #0f172a;
@@ -8,18 +8,67 @@
   --accent: #2563eb;
   --accent-foreground: #eff6ff;
   color-scheme: light dark;
+
+  --sb-track-color: #091125;
+  --sb-thumb-color: #020618;
+  --sb-size: 10px;
 }
 
 body {
   min-height: 100vh;
   background: radial-gradient(circle at top, #0f172a 0%, #020617 45%, #010b19 100%);
   color: #f8fafc;
-  font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  font-family: "Momo Trust Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Momo Trust Sans", system-ui, sans-serif;
+}
+
+.hero-description {
+  font-family: "Momo Trust Sans", cursive;
 }
 
 ::selection {
   background: rgba(37, 99, 235, 0.35);
   color: var(--accent-foreground);
 }
+
+body::-webkit-scrollbar {
+  width: var(--sb-size);
+}
+
+body::-webkit-scrollbar-track {
+  background: var(--sb-track-color);
+  border-radius: 20px;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb-color);
+  border-radius: 20px;
+}
+
+.table-scrollbar {
+  scrollbar-gutter: stable;
+}
+
+.table-scrollbar::-webkit-scrollbar {
+  width: var(--sb-size);
+}
+
+.table-scrollbar::-webkit-scrollbar-track {
+  background: var(--sb-track-color);
+  border-radius: 20px;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb-color);
+  border-radius: 20px;
+}
+

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PoFilesTable } from "@/components/po/po-files-table";
-import { Search } from "lucide-react";
+import { SearchForm } from "@/components/search-form";
 
 type FilesPageProps = {
   searchParams?:
@@ -61,33 +61,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         </p>
       </div>
 
-      <form action="/files" className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-        <label htmlFor="search" className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-          <Search className="size-4" />
-          Tìm kiếm
-        </label>
-        <input
-          id="search"
-          name="q"
-          defaultValue={query}
-          placeholder="Nhập tên tệp, ngôn ngữ hoặc metadata"
-          className="w-full flex-1 rounded-full border border-white/10 bg-transparent px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-white/40 focus:outline-none md:w-auto"
-        />
-        <button
-          type="submit"
-          className="rounded-full bg-white px-6 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
-        >
-          Search
-        </button>
-        {query ? (
-          <Link
-            href="/files"
-            className="text-sm font-semibold text-slate-300 underline-offset-4 hover:underline"
-          >
-            Xoá bộ lọc
-          </Link>
-        ) : null}
-      </form>
+      <SearchForm placeholder="Nhập tên tệp, ngôn ngữ hoặc metadata" basePath="/files" />
 
       <PoFilesTable
         files={files.map((file) => ({

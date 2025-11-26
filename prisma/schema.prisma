@@ -41,3 +41,27 @@ model PoFileMetadata {
 
   @@unique([fileId, key])
 }
+
+model TranslationTable {
+  id          String              @id @default(cuid())
+  name        String
+  language    String
+  description String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  entries     TranslationEntry[]
+}
+
+model TranslationEntry {
+  id          Int                @id @default(autoincrement())
+  sourceText  String
+  translatedText String
+  description String?
+  references  String?
+  tableId     String
+  table       TranslationTable   @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([tableId])
+}

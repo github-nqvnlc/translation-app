@@ -1,19 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Translation Workspace",
@@ -25,6 +12,7 @@ const navLinks = [
   { href: "/", label: "Welcome" },
   { href: "/files", label: "Danh sách tệp" },
   { href: "/upload", label: "Upload tệp" },
+  { href: "/translations", label: "Bảng dịch" },
 ];
 
 export default function RootLayout({
@@ -34,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className="antialiased">
         <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
           <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/80 backdrop-blur">
             <nav className="mx-auto flex max-w-[1440px] items-center justify-between px-4 py-4 md:px-8">
