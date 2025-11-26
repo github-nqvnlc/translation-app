@@ -163,6 +163,20 @@ Xem thêm chi tiết trong thư mục `docs/`:
 - **Tailwind CSS 4** - Utility-first CSS framework
 - **lucide-react** - Icon library
 
+## 👤 Tác giả
+
+- **Nguyễn Văn Lộc** ([github-nqvnlc](https://github.com/github-nqvnlc)) – Fullstack Developer tại Windify, Đà Nẵng, Việt Nam.
+- Website cá nhân: [locnv.vercel.app](http://locnv.vercel.app)
+
+## © Bản quyền
+
+Translation Workspace thuộc bản quyền © Nguyễn Văn Lộc. Mọi đóng góp hoặc phân phối lại vui lòng giữ nguyên ghi công và dẫn nguồn về repository này cùng hồ sơ GitHub của tác giả.
+
+## 🤝 Sponsor
+
+- Ủng hộ qua GitHub Sponsors: [github.com/sponsors/github-nqvnlc](https://github.com/sponsors/github-nqvnlc)
+- Hợp tác doanh nghiệp: liên hệ trực tiếp qua website [locnv.vercel.app](http://locnv.vercel.app) để đặt lịch tư vấn.
+
 ## 📝 License
 
 MIT

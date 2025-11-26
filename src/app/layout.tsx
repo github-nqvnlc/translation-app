@@ -4,8 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Translation Workspace",
-  description:
-    "Next.js SSR demo that showcases Prisma, Tailwind CSS 4, and lucide-react icons for translation tracking.",
+  description: "Quản lý bản dịch chuyên nghiệp với AI Gemini + DeepL, Next.js 16 và Prisma.",
 };
 
 const navLinks = [
@@ -13,6 +12,7 @@ const navLinks = [
   { href: "/files", label: "Danh sách tệp" },
   { href: "/upload", label: "Upload tệp" },
   { href: "/translations", label: "Bảng dịch" },
+  { href: "/about", label: "Về tác giả" },
 ];
 
 export default function RootLayout({
@@ -20,6 +20,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const currentYear = new Date().getFullYear();
+
   return (
     <html lang="en">
       <body className="antialiased">
@@ -43,6 +45,40 @@ export default function RootLayout({
             </nav>
           </header>
           <main>{children}</main>
+          <footer className="border-t border-white/10 bg-slate-950/80">
+            <div className="mx-auto flex max-w-[1440px] flex-col items-start gap-1 px-4 py-4 text-sm text-slate-300 md:items-end md:px-8">
+              <p className="text-2xl font-semibold text-white">Translation Workspace</p>
+              <div className="flex flex-wrap items-center gap-3 text-md text-slate-400">
+                <Link
+                  href="https://github.com/github-nqvnlc"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="transition hover:text-white"
+                >
+                  GitHub
+                </Link>
+                <Link
+                  href="http://locnv.vercel.app"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="transition hover:text-white"
+                >
+                  Website
+                </Link>
+                <Link
+                  href="https://github.com/sponsors/github-nqvnlc"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="transition hover:text-white"
+                >
+                  Sponsor
+                </Link>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                © {currentYear} Nguyễn Văn Lộc · Windify
+              </p>
+            </div>
+          </footer>
         </div>
       </body>
     </html>

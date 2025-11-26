@@ -1,11 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpenCheck, Pencil, Loader2, X, Plus, Trash2, WandSparkles } from "lucide-react";
-import { DEEPL_FREE_CHARACTER_LIMIT } from "@/lib/constants";
+import {
+  DEEPL_FREE_CHARACTER_LIMIT,
+  DEFAULT_TRANSLATION_PROVIDER,
+  GEMINI_CHARACTER_LIMIT,
+  TRANSLATION_PROVIDERS,
+  type TranslationProvider,
+} from "@/lib/constants";
 
 const PAGE_SIZES = [10, 20, 30, 50, 100, 200, 500, 1000];
+const STORAGE_KEYS = {
+  pageSize: "translationEntries.pageSize",
+  provider: "translationEntries.provider",
+};
 
 export type TranslationEntryView = {
   id: number;
@@ -68,6 +78,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
     limit: number;
     message?: string;
   } | null>(null);
+  const [provider, setProvider] = useState<TranslationProvider>(DEFAULT_TRANSLATION_PROVIDER);
   const [toast, setToast] = useState<ToastState>({ show: false, success: false, message: "" });
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
     show: false,
@@ -90,7 +101,9 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
     () => selectedEntries.reduce((sum, entry) => sum + entry.sourceText.length, 0),
     [selectedEntries],
   );
-  const exceedsFreeLimit = selectedCharacterCount > DEEPL_FREE_CHARACTER_LIMIT;
+  const providerLabel = provider === "gemini" ? "Gemini" : "DeepL";
+  const providerLimit = provider === "gemini" ? GEMINI_CHARACTER_LIMIT : DEEPL_FREE_CHARACTER_LIMIT;
+  const exceedsProviderLimit = selectedCharacterCount > providerLimit;
 
   const maxPage = Math.max(1, Math.ceil(entries.length / pageSize));
   const boundedPage = Math.min(page, maxPage);
@@ -99,9 +112,33 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
 
   const visible = useMemo(() => entries.slice(start, end), [entries, start, end]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const storedPageSize = Number(window.localStorage.getItem(STORAGE_KEYS.pageSize));
+    if (PAGE_SIZES.includes(storedPageSize)) {
+      setPageSize(storedPageSize);
+    }
+    const storedProvider = window.localStorage.getItem(STORAGE_KEYS.provider) as TranslationProvider | null;
+    if (storedProvider && TRANSLATION_PROVIDERS.some((option) => option.id === storedProvider)) {
+      setProvider(storedProvider);
+    }
+  }, []);
+
   const handlePageSizeChange = (next: number) => {
     setPageSize(next);
     setPage(1);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEYS.pageSize, String(next));
+    }
+  };
+
+  const handleProviderChange = (next: TranslationProvider) => {
+    setProvider(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEYS.provider, next);
+    }
   };
 
   const openDetail = (label: string, text: string) => {
@@ -183,7 +220,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
     }
   };
 
-  const handleDeepLTranslate = async () => {
+  const handleAiTranslate = async () => {
     if (!targetLanguage || !form.sourceText.trim()) {
       return;
     }
@@ -192,7 +229,8 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
       setTranslating(true);
       setToast({ show: false, success: false, message: "" });
 
-      const response = await fetch("/api/deepl/translate", {
+      const endpoint = provider === "gemini" ? "/api/gemini/translate" : "/api/deepl/translate";
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -204,27 +242,29 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result?.error || "Không thể lấy bản dịch từ DeepL");
+        throw new Error(result?.error || `Không thể lấy bản dịch từ ${providerLabel}`);
       }
 
       const translated = result?.data?.text;
 
       if (typeof translated !== "string") {
-        throw new Error("DeepL trả về dữ liệu không hợp lệ");
+        throw new Error(`${providerLabel} trả về dữ liệu không hợp lệ`);
       }
 
       setForm((prev) => ({ ...prev, translatedText: translated }));
       setToast({
         show: true,
         success: true,
-        message: "Đã cập nhật bản dịch từ DeepL",
+        message: `Đã cập nhật bản dịch từ ${providerLabel}`,
       });
     } catch (error) {
       setToast({
         show: true,
         success: false,
         message:
-          error instanceof Error ? error.message : "Không thể lấy bản dịch từ DeepL. Vui lòng thử lại.",
+          error instanceof Error
+            ? error.message
+            : `Không thể lấy bản dịch từ ${providerLabel}. Vui lòng thử lại.`,
       });
     } finally {
       setTranslating(false);
@@ -246,7 +286,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
   };
 
   const handleBatchTranslate = async () => {
-    if (!targetLanguage || selectedIds.size === 0 || exceedsFreeLimit) {
+    if (!targetLanguage || selectedIds.size === 0 || exceedsProviderLimit) {
       return;
     }
 
@@ -256,7 +296,12 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
       setToast({ show: false, success: false, message: "" });
       setBatchSummary(null);
 
-      const response = await fetch(`/api/translation-tables/${tableId}/entries/batch-translate`, {
+      const endpoint =
+        provider === "gemini"
+          ? `/api/translation-tables/${tableId}/entries/batch-translate/gemini`
+          : `/api/translation-tables/${tableId}/entries/batch-translate`;
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -276,7 +321,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
       setToast({
         show: true,
         success: true,
-        message: `Đã cập nhật ${result?.data?.translatedCount ?? 0} bản dịch bằng DeepL`,
+        message: `Đã cập nhật ${result?.data?.translatedCount ?? 0} bản dịch bằng ${providerLabel}`,
       });
 
       router.refresh();
@@ -430,36 +475,52 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
           </p>
           <p
             className={`mt-1 min-h-[18px] text-xs transition-colors ${
-              selectedIds.size > 0 && exceedsFreeLimit ? "text-rose-400" : "text-slate-400"
+              selectedIds.size > 0 && exceedsProviderLimit ? "text-rose-400" : "text-slate-400"
             }`}
           >
             {selectedIds.size > 0 ? (
               <>
-                Ký tự dự kiến gửi tới DeepL:{" "}
+                Ký tự dự kiến gửi tới {providerLabel}:{" "}
                 <strong>
-                  {selectedCharacterCount.toLocaleString()} / {DEEPL_FREE_CHARACTER_LIMIT.toLocaleString()}
+                  {selectedCharacterCount.toLocaleString()} / {providerLimit.toLocaleString()}
                 </strong>{" "}
                 (gói Free)
               </>
             ) : (
-              "Chọn dòng để kích hoạt dịch hàng loạt bằng DeepL."
+              `Chọn dòng để kích hoạt dịch hàng loạt bằng ${providerLabel}.`
             )}
           </p>
         </div>
         <div className="flex flex-col gap-3 md:items-end">
-          <div className="flex items-center gap-2 self-end text-xs text-slate-400">
-            <label className="font-semibold">Số dòng/trang</label>
-            <select
-              value={pageSize}
-              onChange={(event) => handlePageSizeChange(Number(event.target.value))}
-              className="h-8 cursor-pointer rounded-full border border-white/10 bg-transparent px-2 text-xs text-white"
-            >
-              {PAGE_SIZES.map((size) => (
-                <option key={size} value={size} className="bg-slate-900 text-white">
-                  {size} dòng
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <label className="font-semibold">Số dòng/trang</label>
+              <select
+                value={pageSize}
+                onChange={(event) => handlePageSizeChange(Number(event.target.value))}
+                className="h-8 cursor-pointer rounded-full border border-white/10 bg-transparent px-2 text-xs text-white"
+              >
+                {PAGE_SIZES.map((size) => (
+                  <option key={size} value={size} className="bg-slate-900 text-white">
+                    {size} dòng
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <label className="font-semibold">Nhà cung cấp</label>
+              <select
+                value={provider}
+                onChange={(event) => handleProviderChange(event.target.value as TranslationProvider)}
+                className="h-8 cursor-pointer rounded-full border border-white/10 bg-transparent px-2 text-xs text-white"
+              >
+                {TRANSLATION_PROVIDERS.map((option) => (
+                  <option key={option.id} value={option.id} className="bg-slate-900 text-white">
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           {entries.length > 0 && (
@@ -480,9 +541,8 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
             onClick={openBatchDialog}
             disabled={
               batchTranslating ||
-              translating ||
               !targetLanguage ||
-              exceedsFreeLimit ||
+                exceedsProviderLimit ||
               selectedIds.size === 0
             }
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-sky-500/40 bg-transparent px-3 py-1.5 text-xs font-semibold text-sky-300 transition hover:border-sky-400 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-60"
@@ -490,10 +550,10 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
               !targetLanguage
                 ? "Chưa cấu hình ngôn ngữ cho bảng dịch"
                 : selectedIds.size === 0
-                  ? "Chọn ít nhất một dòng để dịch bằng DeepL"
-                  : exceedsFreeLimit
-                    ? "Số ký tự vượt giới hạn DeepL free"
-                    : "Dịch các dòng đã chọn bằng DeepL"
+                    ? `Chọn ít nhất một dòng để dịch bằng ${providerLabel}`
+                    : exceedsProviderLimit
+                      ? `Số ký tự vượt giới hạn ${providerLabel}`
+                      : `Dịch các dòng đã chọn bằng ${providerLabel}`
             }
           >
             {batchTranslating ? <Loader2 className="size-4 animate-spin" /> : <WandSparkles className="size-4" />}
@@ -721,7 +781,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
                   <label className="text-xs font-semibold text-slate-500">Translated Text *</label>
                   <button
                     type="button"
-                    onClick={handleDeepLTranslate}
+                    onClick={handleAiTranslate}
                     disabled={
                       translating ||
                       !targetLanguage ||
@@ -730,12 +790,12 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
                     className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
                     title={
                       targetLanguage
-                        ? "Dùng DeepL để dịch nhanh từ Source Text"
+                        ? `Dùng ${providerLabel} để dịch nhanh từ Source Text`
                         : "Thiếu target language trong bảng dịch"
                     }
                   >
                     {translating ? <Loader2 className="size-3 animate-spin" /> : <WandSparkles className="size-3" />}
-                    DeepL
+                    {providerLabel}
                   </button>
                 </div>
                 <textarea
@@ -793,7 +853,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
           <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-slate-950 p-6 text-slate-100 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-slate-500">DeepL Batch</p>
+                <p className="text-xs font-semibold text-slate-500">{providerLabel} Batch</p>
                 <h3 className="text-lg font-semibold">Dịch hàng loạt {selectedIds.size} dòng</h3>
               </div>
               <button
@@ -813,13 +873,10 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
               </p>
               <p>
                 Ký tự dự kiến:{" "}
-                <strong
-                  className={exceedsFreeLimit ? "text-rose-400" : "text-slate-100"}
-                >
-                  {selectedCharacterCount.toLocaleString()} /{" "}
-                  {DEEPL_FREE_CHARACTER_LIMIT.toLocaleString()}
+                <strong className={exceedsProviderLimit ? "text-rose-400" : "text-slate-100"}>
+                  {selectedCharacterCount.toLocaleString()} / {providerLimit.toLocaleString()}
                 </strong>{" "}
-                (giới hạn gói Free)
+                (giới hạn ước tính)
               </p>
               {!overwriteExisting ? (
                 <p className="text-xs text-slate-400">
@@ -879,7 +936,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
                 onClick={handleBatchTranslate}
                 disabled={
                   batchTranslating ||
-                  exceedsFreeLimit ||
+                  exceedsProviderLimit ||
                   !targetLanguage ||
                   selectedIds.size === 0
                 }
