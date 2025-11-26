@@ -104,6 +104,7 @@ Kho đã cấu hình GitHub Actions tại `.github/workflows/ci.yml`:
 
 > **Secrets bắt buộc** (thiết lập trong Settings → Secrets → Actions):
 >
+> - `DATABASE_URL`
 > - `VERCEL_TOKEN`
 > - `VERCEL_ORG_ID`
 > - `VERCEL_PROJECT_ID`
