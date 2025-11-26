@@ -76,6 +76,7 @@ export function CreateTranslationForm() {
         router.refresh();
       }, 1500);
     } catch (error) {
+      console.error(error);
       setToast({
         show: true,
         success: false,

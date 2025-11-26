@@ -3,7 +3,6 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { useState, useTransition } from "react";
-import Link from "next/link";
 
 type SearchFormProps = {
   placeholder?: string;

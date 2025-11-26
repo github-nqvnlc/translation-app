@@ -298,7 +298,7 @@ export function TranslationTablesList({ tables }: Props) {
             <div className="mb-6 space-y-2">
               {confirmDialog.type === "single" && confirmDialog.tableName ? (
                 <p className="text-slate-300">
-                  Bạn có chắc chắn muốn xóa bảng dịch <strong>"{confirmDialog.tableName}"</strong>?
+                  Bạn có chắc chắn muốn xóa bảng dịch <strong>&ldquo;{confirmDialog.tableName}&rdquo;</strong>?
                 </p>
               ) : confirmDialog.type === "multiple" ? (
                 <p className="text-slate-300">
@@ -310,7 +310,7 @@ export function TranslationTablesList({ tables }: Props) {
                 </p>
               )}
               <p className="text-sm text-slate-400">
-                Hành động này không thể hoàn tác. Vui lòng gõ <strong>"DELETE"</strong> để xác nhận.
+                Hành động này không thể hoàn tác. Vui lòng gõ <strong>&ldquo;DELETE&rdquo;</strong> để xác nhận.
               </p>
             </div>
 

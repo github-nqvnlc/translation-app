@@ -332,7 +332,7 @@ export function PoFilesTable({ files, activeFileId }: Props) {
             <div className="mb-6 space-y-2">
               {confirmDialog.type === "single" && confirmDialog.fileName ? (
                 <p className="text-slate-300">
-                  Bạn có chắc chắn muốn xóa file <strong>"{confirmDialog.fileName}"</strong>?
+                  Bạn có chắc chắn muốn xóa file <strong>&ldquo;{confirmDialog.fileName}&rdquo;</strong>?
                 </p>
               ) : confirmDialog.type === "multiple" ? (
                 <p className="text-slate-300">
@@ -344,7 +344,7 @@ export function PoFilesTable({ files, activeFileId }: Props) {
                 </p>
               )}
               <p className="text-sm text-slate-400">
-                Hành động này không thể hoàn tác. Vui lòng gõ <strong>"DELETE"</strong> để xác nhận.
+                Hành động này không thể hoàn tác. Vui lòng gõ <strong>&ldquo;DELETE&rdquo;</strong> để xác nhận.
               </p>
             </div>
 
