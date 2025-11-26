@@ -3,7 +3,7 @@
 ## Yêu cầu hệ thống
 - Node.js >= 20 (nên sử dụng cùng phiên bản với dự án: 22.x).
 - npm (đi kèm Node.js). Nếu dùng nvm, hãy chạy `nvm use` trước.
-- Quyền ghi file trong thư mục dự án để tạo database SQLite (`prisma/dev.db`).
+- Một instance PostgreSQL mà bạn có quyền kết nối (local Docker, Neon, Supabase, RDS...).
 
 ## Thiết lập môi trường
 1. **Cài đặt npm packages**
@@ -16,11 +16,11 @@
    ```
    ⚠️ **Lưu ý quan trọng**: Sau khi cài đặt `@prisma/client` hoặc thay đổi `prisma/schema.prisma`, bạn PHẢI chạy lệnh này để tạo Prisma Client. Nếu không, ứng dụng sẽ báo lỗi `Cannot find module '.prisma/client/default'`.
 3. **Thiết lập biến môi trường**
-   - File `.env` đã có sẵn dòng 
+   - File `.env` cần chứa dòng 
      ```
-     DATABASE_URL="file:./prisma/dev.db"
+     DATABASE_URL="postgresql://user:password@host:5432/db_name?schema=public"
      ```
-   - Khi triển khai thực tế, cập nhật đường dẫn phù hợp (vd. Turso, libSQL, PostgreSQL...) và đồng bộ cùng adapter tương ứng.
+   - Thay thông tin truy cập phù hợp với từng môi trường (local/staging/production).
 4. **Migrate & seed dữ liệu**
    ```bash
    npm run prisma:migrate   # tạo migration mới hoặc đồng bộ schema
@@ -44,7 +44,7 @@
 | `npm run format` | Chạy Prettier (kèm tailwind plugin) |
 | `npm run typecheck` | Kiểm tra kiểu TypeScript mà không build |
 | `npm run prisma:generate` | Sinh Prisma Client sau khi đổi schema |
-| `npm run prisma:migrate` | Tạo & apply migration mới (SQLite) |
+| `npm run prisma:migrate` | Tạo & apply migration mới (PostgreSQL) |
 | `npm run prisma:studio` | UI dữ liệu |
 | `npm run db:seed` | Seed 1 tệp `.po` mẫu |
 | `npm run db:reset` | Reset DB + seed lại |

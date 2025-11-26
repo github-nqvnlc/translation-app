@@ -93,8 +93,7 @@
 
 ### Library & Utilities
 - `src/lib/po-parser.ts`: Parse file `.po` thành cấu trúc dữ liệu
-- `src/lib/prisma.ts`: Singleton Prisma Client với adapter SQLite
-- `src/lib/prisma-adapter.ts`: Tạo adapter `PrismaBetterSqlite3`
+- `src/lib/prisma.ts`: Singleton Prisma Client kết nối PostgreSQL
 - `src/lib/utils/po-payload.ts`: Validation và parse payload cho API
 
 ## Server-side rendering
@@ -112,5 +111,5 @@
 ## Giám sát & bảo trì
 - Kiểm tra định kỳ `prisma/migrations` vào Git để đảm bảo schema đồng bộ.
 - Luôn chạy `npm run typecheck` + `npm run lint` trước khi deploy.
-- SQLite phù hợp local/dev. Khi triển khai production nên dùng Postgres/MySQL/libSQL để tránh khóa file.
+- Hạ tầng hiện dùng PostgreSQL, có thể mở rộng sang các managed service như Neon, Supabase hoặc RDS.
 

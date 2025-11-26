@@ -1,7 +1,17 @@
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { createSqliteAdapter } from "../src/lib/prisma-adapter";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
-const prisma = new PrismaClient({ adapter: createSqliteAdapter() });
+const datasourceUrl = process.env.DATABASE_URL;
+
+if (!datasourceUrl) {
+  throw new Error("DATABASE_URL is required to run the seed script");
+}
+
+const pool = new Pool({ connectionString: datasourceUrl });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 const sampleMetadata = [
   { key: "Project-Id-Version", value: "demo-po-viewer" },
@@ -63,5 +73,6 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });
 

@@ -6,7 +6,7 @@ Tài liệu này mô tả ngắn gọn kiến trúc và các bước cần thi�
 - **Next.js 16 (App Router)** với kết xuất phía server mặc định và hỗ trợ React Server Components.
 - **TypeScript** cho kiểm tra kiểu tĩnh, **ESLint + Prettier** để lint/format thống nhất (kèm plugin tailwind).
 - **Tailwind CSS 4** chạy qua `@tailwindcss/postcss`, kết hợp theme tuỳ chỉnh tại `src/app/globals.css`.
-- **Prisma 7 + SQLite** dùng driver `@prisma/adapter-better-sqlite3` để tương thích CLI mới.
+- **Prisma 7 + PostgreSQL** đọc `DATABASE_URL` để tạo Prisma Client.
 - **lucide-react** cung cấp bộ biểu tượng dạng SVG.
 - **Module PO Viewer**: tính năng upload/CRUD tệp `.po`, lưu msgid/msgstr vào DB, phân trang và xem chi tiết giống giao diện mẫu gốc.
 
@@ -58,13 +58,13 @@ Tài liệu này mô tả ngắn gọn kiến trúc và các bước cần thi�
 - `src/components/translations/DeleteTableButton` – Button xóa bảng dịch với confirm
 
 ### Library & Utilities
-- `src/lib/prisma.ts` & `src/lib/prisma-adapter.ts` – Prisma Client với adapter SQLite
+- `src/lib/prisma.ts` – Prisma Client đọc `DATABASE_URL` (PostgreSQL)
 - `src/lib/po-parser.ts` – Logic phân tích tệp `.po` (msgid/msgstr)
 - `src/lib/utils/po-payload.ts` – Validation và parse payload cho API
 
 ### Database
 - `prisma/schema.prisma` – Schema gồm `PoFile`, `PoEntry`, `PoFileMetadata`, `TranslationTable` và `TranslationEntry`
-- `prisma/seed.ts` – Seed một tệp `.po` mẫu (chạy qua `tsx`)
+- `prisma/seed.ts` – Seed một tệp `.po` mẫu (chạy qua `tsx`, dùng PostgreSQL)
 - `prisma/migrations/` – Các file migration đã áp dụng
 
 ### Documentation
@@ -74,7 +74,7 @@ Tài liệu này mô tả ngắn gọn kiến trúc và các bước cần thi�
 - `npm run lint` / `npm run lint:fix` – đảm bảo chuẩn Next.js + TypeScript.
 - `npm run format` – Prettier kèm plugin sắp xếp class Tailwind.
 - `npm run typecheck` – chạy `tsc --noEmit`.
-- `npm run prisma:studio` – UI quản lý dữ liệu SQLite.
+- `npm run prisma:studio` – UI quản lý dữ liệu PostgreSQL.
 
 > Chi tiết từng hạng mục (setup, database, kiến trúc) xem trong các file còn lại của thư mục `docs`.
 

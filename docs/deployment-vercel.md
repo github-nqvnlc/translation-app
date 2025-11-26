@@ -11,7 +11,7 @@ Tài liệu này mô tả trọn bộ quy trình đưa ứng dụng Next.js/Pris
 | Runtime cục bộ | Node.js ≥ 20, npm ≥ 10, Prisma CLI (`npx prisma -v`) |
 | Công cụ | `vercel` CLI (cài bằng `npm i -g vercel`), quyền truy cập DB nếu dùng dịch vụ ngoài |
 
-> SQLite file (`prisma/dev.db`) **không được hỗ trợ** trên môi trường serverless của Vercel. Hãy chuyển sang Postgres do Vercel cung cấp (hoặc Neon/Supabase/Turso) trước khi deploy.
+> Ứng dụng đã cấu hình Prisma với PostgreSQL, tương thích đầy đủ với môi trường serverless của Vercel. Hãy chuẩn hóa `DATABASE_URL` cho từng môi trường trước khi deploy.
 
 ## 2. Chuẩn bị mã nguồn
 
@@ -31,19 +31,13 @@ Tài liệu này mô tả trọn bộ quy trình đưa ứng dụng Next.js/Pris
 
 > Nếu bạn dùng dịch vụ khác (Neon, Supabase): vẫn cần 3 biến môi trường tương tự. Đảm bảo option TLS phù hợp.
 
-### 3.2 Cập nhật Prisma sử dụng Postgres
+### 3.2 Xác nhận Prisma sử dụng Postgres
 
-1. Mở `prisma/schema.prisma` và đổi `provider` từ `sqlite` sang `postgresql`:
-   ```prisma
-   datasource db {
-     provider = "postgresql"
-     url      = env("DATABASE_URL")
-     directUrl = env("DIRECT_URL") // giúp prisma migrate deploy
-   }
-   ```
-2. Nếu vẫn muốn phát triển cục bộ với SQLite, hãy tạo branch riêng; Prisma không hỗ trợ hai provider cùng lúc.
-3. Chạy lại `npx prisma migrate dev --name init-vercel` (hoặc tên phù hợp) để sinh migration cho Postgres.
-4. Seed dữ liệu (tùy chọn): `npm run db:seed` — lệnh cần được điều chỉnh để làm việc với Postgres (ví dụ dùng `PrismaClient` mới).
+1. `prisma/schema.prisma` phải có `provider = "postgresql"` (mặc định repo đã thiết lập sẵn).
+2. `prisma.config.ts` đọc `DATABASE_URL` từ biến môi trường để phục vụ `prisma migrate`.
+3. Trong code (`src/lib/prisma.ts`, `prisma/seed.ts`), Prisma Client khởi tạo với `datasourceUrl` → chỉ cần bảo đảm `DATABASE_URL` trỏ tới Postgres hợp lệ.
+4. Chạy `npx prisma migrate dev --name prepare-vercel` (hoặc tên phù hợp) để tạo migration mới nếu schema vừa thay đổi.
+5. Seed dữ liệu (tùy chọn): `npm run db:seed`.
 
 ## 4. Thiết lập biến môi trường
 

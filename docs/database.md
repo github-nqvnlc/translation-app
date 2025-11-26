@@ -2,15 +2,14 @@
 
 ## Công nghệ sử dụng
 - **Prisma 7** với file cấu hình trung tâm `prisma.config.ts`.
-- **SQLite** làm database nội bộ, lưu tại `prisma/dev.db`.
-- **@prisma/adapter-better-sqlite3** + `better-sqlite3` để tương thích Prisma Client mới (yêu cầu truyền `adapter` khi khởi tạo).
+- **PostgreSQL** là cơ sở dữ liệu chính, quản lý qua biến môi trường `DATABASE_URL`.
 
 ## Biến môi trường
 ```
-DATABASE_URL="file:./prisma/dev.db"
+DATABASE_URL="postgresql://user:password@host:5432/db_name?schema=public"
 ```
-- Giá trị `file:` có thể thay bằng `sqlite:///absolute-path` hoặc các URI của hệ quản trị khác.
-- Khi triển khai DB khác, cần đồng bộ cả `DATABASE_URL` và adapter tương ứng (vd. `@prisma/adapter-pg` cho PostgreSQL).
+- Thay `user`, `password`, `host`, `db_name` cho từng môi trường (local, staging, production).
+- Khi đổi DB, chỉ cần cập nhật lại biến môi trường và chạy lại migrate.
 
 ## Prisma config
 `prisma.config.ts` định nghĩa:
@@ -68,7 +67,7 @@ DATABASE_URL="file:./prisma/dev.db"
 npm run prisma:migrate          # tạo migration mới khi schema thay đổi
 ```
 - Prisma sẽ tạo thư mục `prisma/migrations/<timestamp>_<name>/migration.sql`.
-- SQLite shadow DB được quản lý tự động bằng adapter `PrismaBetterSqlite3`.
+- Shadow database sử dụng chính kết nối PostgreSQL đã cấu hình.
 
 ## Sinh Prisma Client
 ```bash
@@ -81,13 +80,13 @@ npm run prisma:generate
   - Sau khi chạy `npm run prisma:migrate`
 - Nếu không chạy, ứng dụng sẽ báo lỗi: `Cannot find module '.prisma/client/default'`
 
-## Khởi tạo Prisma Client với adapter
+## Khởi tạo Prisma Client
 `src/lib/prisma.ts`:
 ```ts
 import { prisma } from "@/lib/prisma";
 ```
-- File này tạo singleton `PrismaClient({ adapter: createSqliteAdapter() })`.
-- Adapter dựng tại `src/lib/prisma-adapter.ts` (sử dụng `PrismaBetterSqlite3`).
+- File này tạo singleton `PrismaClient({ datasourceUrl: process.env.DATABASE_URL })`.
+- Prisma được khởi tạo một lần và tái sử dụng ở môi trường dev để tránh vượt quá số lượng kết nối.
 - `src/lib/po-parser.ts` chịu trách nhiệm parse `.po` và được server action tái sử dụng.
 
 ## Seed dữ liệu
@@ -104,7 +103,6 @@ npm run prisma:studio
 
 ## Thay đổi DB trong tương lai
 1. Cập nhật `DATABASE_URL`.
-2. Cài đặt adapter tương ứng (VD: `npm install @prisma/adapter-pg pg`).
-3. Điều chỉnh `createSqliteAdapter` → `createPgAdapter` (đổi tên file nếu cần) và cập nhật import tại `src/lib/prisma.ts` + `prisma/seed.ts`.
-4. Chạy lại `npm run prisma:generate`.
+2. Bảo đảm database hiện có schema tương thích (seed/migrate lại nếu cần).
+3. Chạy `npm run prisma:migrate` và `npm run prisma:generate` để đồng bộ client.
 
