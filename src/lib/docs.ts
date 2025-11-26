@@ -15,7 +15,7 @@ export async function getDocContent(slug: string): Promise<string> {
 
     const content = await readFile(filePath, "utf-8");
     return content;
-  } catch (error) {
+  } catch {
     throw new Error(`Failed to read doc: ${slug}`);
   }
 }

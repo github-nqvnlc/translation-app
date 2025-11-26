@@ -26,7 +26,7 @@ export default function CodeBlock({ children }: { children: React.ReactNode }) {
       }
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch (e) {
+    } catch {
       // noop
     }
   }
