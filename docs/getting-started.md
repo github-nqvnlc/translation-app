@@ -14,7 +14,7 @@
    npm install
    ```
 
-2. **Generate Prisma Client** (BẮT BUỘC sau khi cài đặt)
+1. **Generate Prisma Client** (BẮT BUỘC sau khi cài đặt)
 
    ```bash
    npm run prisma:generate
@@ -22,7 +22,7 @@
 
    ⚠️ **Lưu ý quan trọng**: Sau khi cài đặt `@prisma/client` hoặc thay đổi `prisma/schema.prisma`, bạn PHẢI chạy lệnh này để tạo Prisma Client. Nếu không, ứng dụng sẽ báo lỗi `Cannot find module '.prisma/client/default'`.
 
-3. **Thiết lập biến môi trường**
+1. **Thiết lập biến môi trường**
 
    - File `.env` cần chứa dòng 
 
@@ -42,8 +42,17 @@
      Bạn có thể tạo API key và kiểm tra endpoint thích hợp theo hướng dẫn chính thức của DeepL.[^deepl-doc]
 
    - Giới hạn gói DeepL Free hiện tại: **500.000 ký tự/tháng**. Ứng dụng sẽ hiển thị số ký tự chuẩn bị dịch so với giới hạn này trước khi gửi yêu cầu.
+- Muốn bật dịch bằng Gemini (Google AI), bổ sung:
 
-4. **Migrate & seed dữ liệu**
+    ```env
+    GEMINI_API_KEY="your_gemini_api_key"
+    # Tùy chọn: chọn model, ví dụ Gemini 3
+    # GEMINI_TRANSLATION_MODEL="gemini-3-pro-preview"
+    ```
+
+    Gemini sử dụng SDK chính thức `@google/genai` (phiên bản hỗ trợ Gemini 3). Mỗi provider được cấu hình tách biệt; bạn có thể bật một hoặc cả hai tùy hạ tầng.
+
+1. **Migrate & seed dữ liệu**
 
    ```bash
    npm run prisma:migrate   # tạo migration mới hoặc đồng bộ schema
@@ -106,7 +115,7 @@
 - **Viewer phân trang**: Dữ liệu msgid/msgstr được render SSR và tái sử dụng logic từ `example/app.js`.
 - **Tìm kiếm nâng cao**: Tìm kiếm trong danh sách tệp hoặc trong từng tệp cụ thể.
 - **Xuất file**: Xuất file .po, CSV, Excel, JSON với các thay đổi đã cập nhật.
-- **DeepL**: Modal chỉnh sửa từng entry có nút DeepL tự điền `msgstr`. Ngoài ra, trang chi tiết file hỗ trợ chọn nhiều dòng và bấm **Dịch hàng loạt**; hệ thống hiển thị tổng ký tự cần dịch so với giới hạn 500.000 ký tự của gói Free và cho phép chọn ghi đè hay giữ nguyên các dòng đã có `msgstr`.
+- **AI Translate (DeepL/Gemini)**: Modal chỉnh sửa từng entry có nút chọn nhà cung cấp dịch (DeepL hoặc Gemini) để tự điền `msgstr`. Ngoài ra, trang chi tiết file hỗ trợ chọn nhiều dòng và bấm **Dịch hàng loạt**; hệ thống hiển thị tổng ký tự cần dịch so với giới hạn của provider đang chọn và cho phép chọn ghi đè hay giữ nguyên các dòng đã có `msgstr`.
 
 ### Quản lý bảng dịch
 
@@ -114,8 +123,8 @@
 - **CRUD entries**: Thêm, sửa, xóa các bản dịch trong bảng một cách linh hoạt.
 - **Quản lý độc lập**: Mỗi bảng dịch hoạt động độc lập, không phụ thuộc vào file .po.
 - **Xuất file**: Xuất bảng dịch ra CSV, Excel, JSON hoặc .po.
-- **DeepL trợ giúp**: Nếu đã cấu hình `DEEPL_API_KEY`, nút **DeepL** trong modal thêm/sửa sẽ tự động gọi DeepL để lấp sẵn phần dịch dựa trên *Source Text*.
-- **DeepL dịch hàng loạt**: Chọn nhiều dòng trong bảng dịch, nhấn **Dịch hàng loạt** để gọi DeepL theo lô. Giao diện hiển thị tổng ký tự cần dịch / giới hạn DeepL Free, cảnh báo khi vượt giới hạn và cho phép chọn ghi đè hay chỉ dịch các dòng đang trống.
+- **AI trợ giúp**: Nếu đã cấu hình `DEEPL_API_KEY` hoặc `GEMINI_API_KEY`, nút AI trong modal thêm/sửa cho phép chọn provider và tự động lấp sẵn phần dịch dựa trên *Source Text*.
+- **AI dịch hàng loạt**: Chọn nhiều dòng trong bảng dịch, nhấn **Dịch hàng loạt** để gọi provider đã chọn (DeepL/Gemini). Giao diện hiển thị tổng ký tự cần dịch / giới hạn của provider, cảnh báo khi vượt giới hạn và cho phép chọn ghi đè hay chỉ dịch các dòng đang trống.
 
 ### API REST
 
@@ -154,6 +163,7 @@
 - `GET /api/po-files/[id]/export/excel` - Xuất file Excel
 - `GET /api/po-files/[id]/export/json` - Xuất file JSON
 - `POST /api/po-files/[id]/entries/batch-translate` - Dịch hàng loạt các entry của file thông qua DeepL
+- `POST /api/po-files/[id]/entries/batch-translate/gemini` - Dịch hàng loạt qua Gemini (Google AI)
 
 ### Translation Tables
 
@@ -171,5 +181,8 @@
 - `GET /api/translation-tables/[id]/export/json` - Xuất JSON
 - `GET /api/translation-tables/[id]/export/po` - Xuất PO
 - `POST /api/translation-tables/[id]/entries/batch-translate` - Gọi DeepL dịch hàng loạt theo danh sách `entryIds`
+- `POST /api/translation-tables/[id]/entries/batch-translate/gemini` - Gọi Gemini dịch hàng loạt theo danh sách `entryIds`
+- `POST /api/deepl/translate` - Dịch nhanh từng đoạn bằng DeepL
+- `POST /api/gemini/translate` - Dịch nhanh từng đoạn bằng Gemini
 
 [^deepl-doc]: DeepL API – hướng dẫn bắt đầu: <https://developers.deepl.com/docs/getting-started/intro>
