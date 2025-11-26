@@ -3,10 +3,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "/app/generated/prisma-client"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model PoFile {
