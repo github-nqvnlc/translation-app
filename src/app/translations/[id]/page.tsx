@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { TranslationEntriesPanel } from "@/components/translations/translation-entries-panel";
 import { DeleteTableButton } from "@/components/translations/delete-table-button";
 import { SearchForm } from "@/components/search-form";
+import { requireAuth } from "@/lib/middleware/auth";
+import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
 
 type TranslationDetailPageProps = {
   params: Promise<{
@@ -26,6 +29,13 @@ export default async function TranslationDetailPage({
   params,
   searchParams,
 }: TranslationDetailPageProps) {
+  // Authentication check
+  const authResult = await requireAuth();
+  if (!authResult.authenticated) {
+    redirect("/login");
+  }
+
+  const user = authResult.user;
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
   const query =
@@ -47,6 +57,13 @@ export default async function TranslationDetailPage({
           : undefined,
         orderBy: { createdAt: "asc" },
       },
+      project: {
+        select: {
+          id: true,
+          name: true,
+          isPublic: true,
+        },
+      },
     },
   });
 
@@ -54,12 +71,49 @@ export default async function TranslationDetailPage({
     notFound();
   }
 
+  // Check access permission
+  if (!user) {
+    redirect("/login");
+  }
+
+  const isAdmin = user.systemRole === Role.ADMIN;
+  const isPublicProject = table.project?.isPublic || false;
+  const userProjectIds = user.projectRoles.map((pr) => pr.projectId);
+  const hasProjectAccess = table.projectId
+    ? userProjectIds.includes(table.projectId)
+    : false;
+
+  if (!isAdmin && !isPublicProject && !hasProjectAccess) {
+    redirect("/projects?error=access_denied");
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 md:px-8">
       <div className="flex flex-col gap-2">
-        <Link href="/translations" className="text-xs font-semibold text-slate-400">
-          ← Danh sách bảng dịch
-        </Link>
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+          <Link href="/projects" className="transition hover:text-white">
+            Projects
+          </Link>
+          {table.projectId && table.project ? (
+            <>
+              <span>/</span>
+              <Link
+                href={`/projects/${table.projectId}`}
+                className="transition hover:text-white"
+              >
+                {table.project.name}
+              </Link>
+              <span>/</span>
+              <span className="text-slate-300">Translation Table</span>
+            </>
+          ) : (
+            <>
+              <span>/</span>
+              <span className="text-slate-300">Translation Table</span>
+            </>
+          )}
+        </div>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <h1 className="text-3xl font-semibold text-white">{table.name}</h1>

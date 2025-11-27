@@ -1,78 +1,110 @@
-import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
-
-const datasourceUrl = process.env.DATABASE_URL;
-
-if (!datasourceUrl) {
-  throw new Error("DATABASE_URL is required to run the seed script");
-}
-
-const pool = new Pool({ connectionString: datasourceUrl });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
-
-const sampleMetadata = [
-  { key: "Project-Id-Version", value: "demo-po-viewer" },
-  { key: "Language-Team", value: "Vietnamese" },
-  { key: "Last-Translator", value: "demo@example.com" },
-  { key: "Language", value: "vi" },
-];
-
-const sampleEntries = [
-  {
-    msgid: "Hello world",
-    msgstr: "Xin chào thế giới",
-    description: "Lời chào mặc định dùng ở trang chủ.",
-    references: "app/home/page.tsx:10",
-  },
-  {
-    msgid: "Click to continue",
-    msgstr: "Bấm để tiếp tục",
-    description: "Hướng dẫn người dùng chuyển bước kế tiếp.",
-    references: "app/components/wizard.tsx:42",
-  },
-  {
-    msgid: "Saving changes...",
-    msgstr: "Đang lưu thay đổi...",
-    description: "Hiển thị khi biểu mẫu đang lưu dữ liệu.",
-    references: "app/components/form.tsx:88",
-  },
-];
+import { Role } from '@prisma/client';
+import { hashPassword } from '../src/lib/auth';
+import { prisma } from '../src/lib/prisma';
 
 async function main() {
-  await prisma.poEntry.deleteMany();
-  await prisma.poFile.deleteMany();
+  console.log('🌱 Starting database seed...');
 
-  await prisma.poFile.create({
-    data: {
-      filename: "sample.po",
-      filesize: 0,
-      language: "vi",
-      metadata: {
-        createMany: {
-          data: sampleMetadata,
-        },
-      },
-      entries: {
-        createMany: {
-          data: sampleEntries,
-        },
-      },
-    },
+  // Create default admin user
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'Admin123!@#';
+
+  // Check if admin user already exists
+  const existingAdmin = await prisma.user.findUnique({
+    where: { email: adminEmail },
+    include: { systemRole: true },
   });
 
-  console.info(`Seeded sample .po file with ${sampleEntries.length} entries`);
+  if (existingAdmin) {
+    console.log(`✅ Admin user already exists: ${adminEmail}`);
+    
+    // Ensure admin has system role
+    if (!existingAdmin.systemRole) {
+      await prisma.systemRole.create({
+        data: {
+          userId: existingAdmin.id,
+          role: Role.ADMIN,
+          grantedBy: existingAdmin.id, // Self-granted for seed
+        },
+      });
+      console.log(`✅ System ADMIN role granted to existing user: ${adminEmail}`);
+    } else {
+      console.log(`✅ Admin user already has system role: ${adminEmail}`);
+    }
+  } else {
+    // Create new admin user
+    const passwordHash = await hashPassword(adminPassword);
+    
+    const adminUser = await prisma.user.create({
+      data: {
+        email: adminEmail,
+        passwordHash,
+        name: 'System Administrator',
+        emailVerified: true, // Auto-verify for seed admin
+        emailVerifiedAt: new Date(),
+      },
+    });
+
+    // Grant system ADMIN role
+    await prisma.systemRole.create({
+      data: {
+        userId: adminUser.id,
+        role: Role.ADMIN,
+        grantedBy: adminUser.id, // Self-granted for seed
+      },
+    });
+
+    console.log(`✅ Created admin user: ${adminEmail}`);
+    console.log(`   Password: ${adminPassword}`);
+    console.log(`   ⚠️  Please change the password after first login!`);
+  }
+
+  // Create sample project (optional)
+  if (process.env.CREATE_SAMPLE_PROJECT === 'true') {
+    const sampleProject = await prisma.project.findFirst({
+      where: { name: 'Sample Project' },
+    });
+
+    if (!sampleProject) {
+      const admin = await prisma.user.findUnique({
+        where: { email: adminEmail },
+      });
+
+      if (admin) {
+        const project = await prisma.project.create({
+          data: {
+            name: 'Sample Project',
+            description: 'A sample project for testing',
+            isPublic: false,
+            createdBy: admin.id,
+          },
+        });
+
+        // Add admin as project member with ADMIN role
+        await prisma.projectMember.create({
+          data: {
+            projectId: project.id,
+            userId: admin.id,
+            role: Role.ADMIN,
+            invitedBy: admin.id,
+          },
+        });
+
+        console.log(`✅ Created sample project: ${project.name}`);
+      }
+    } else {
+      console.log(`✅ Sample project already exists`);
+    }
+  }
+
+  console.log('✅ Database seed completed!');
 }
 
 main()
-  .catch((error) => {
-    console.error(error);
+  .catch((e) => {
+    console.error('❌ Seed error:', e);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
-    await pool.end();
   });
-

@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, createAuthErrorResponse } from "@/lib/middleware/auth";
+import { Role } from "@prisma/client";
 
 type RouteContext = {
   params: Promise<{
@@ -7,21 +9,121 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(_: Request, { params }: RouteContext) {
-  const { id } = await params;
+export async function GET(_: NextRequest, { params }: RouteContext) {
+  try {
+    // Authentication check
+    const authResult = await requireAuth();
+    if (!authResult.authenticated || !authResult.user) {
+      return createAuthErrorResponse(authResult);
+    }
 
-  const entries = await prisma.translationEntry.findMany({
-    where: { tableId: id },
-    orderBy: { createdAt: "asc" },
-  });
+    const user = authResult.user;
+    const { id } = await params;
 
-  return NextResponse.json({ data: entries });
+    // Check table access
+    const table = await prisma.translationTable.findUnique({
+      where: { id },
+      include: {
+        project: {
+          select: {
+            id: true,
+            isPublic: true,
+          },
+        },
+      },
+    });
+
+    if (!table) {
+      return NextResponse.json(
+        { error: "Bảng dịch không tồn tại" },
+        { status: 404 }
+      );
+    }
+
+    // Check access permission
+    const isAdmin = user.systemRole === Role.ADMIN;
+    const isPublicProject = table.project?.isPublic || false;
+    const userProjectIds = user.projectRoles.map((pr) => pr.projectId);
+    const hasProjectAccess = table.projectId
+      ? userProjectIds.includes(table.projectId)
+      : false;
+
+    if (!isAdmin && !isPublicProject && !hasProjectAccess) {
+      return NextResponse.json(
+        { error: "Bạn không có quyền truy cập bảng dịch này" },
+        { status: 403 }
+      );
+    }
+
+    const entries = await prisma.translationEntry.findMany({
+      where: { tableId: id },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return NextResponse.json({ data: entries });
+  } catch (error) {
+    console.error("Get translation entries error:", error);
+    return NextResponse.json(
+      { error: "Đã xảy ra lỗi khi lấy danh sách entries" },
+      { status: 500 }
+    );
+  }
 }
 
-export async function POST(request: Request, { params }: RouteContext) {
-  const { id } = await params;
-
+export async function POST(request: NextRequest, { params }: RouteContext) {
   try {
+    // Authentication and permission check
+    const { requireAuthAndPermission } = await import("@/lib/middleware/rbac");
+    const permissionResult = await requireAuthAndPermission("create_entries");
+    if (permissionResult.error) {
+      return permissionResult.error;
+    }
+
+    const user = permissionResult.user;
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+
+    // Check table access
+    const table = await prisma.translationTable.findUnique({
+      where: { id },
+      include: {
+        project: {
+          select: {
+            id: true,
+            isPublic: true,
+          },
+        },
+      },
+    });
+
+    if (!table) {
+      return NextResponse.json(
+        { error: "Bảng dịch không tồn tại" },
+        { status: 404 }
+      );
+    }
+
+    // Check access permission
+    const isAdmin = user.systemRole === Role.ADMIN;
+    const isPublicProject = table.project?.isPublic || false;
+    const userProjectIds = user.projectRoles.map((pr) => pr.projectId);
+    const hasProjectAccess = table.projectId
+      ? userProjectIds.includes(table.projectId)
+      : false;
+
+    if (!isAdmin && !isPublicProject && !hasProjectAccess) {
+      return NextResponse.json(
+        { error: "Bạn không có quyền thêm entries vào bảng dịch này" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { sourceText, translatedText, description, references } = body ?? {};
 
@@ -43,8 +145,28 @@ export async function POST(request: Request, { params }: RouteContext) {
       },
     });
 
+    // Create audit log
+    const { getClientIp, getUserAgent } = await import("@/lib/auth");
+    const ipAddress = getClientIp(request);
+    const userAgent = getUserAgent(request);
+
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "translation_entry_created",
+        resourceType: "translation_entry",
+        resourceId: created.id.toString(),
+        details: {
+          tableId: id,
+        },
+        ipAddress,
+        userAgent,
+      },
+    });
+
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
+    console.error("Create translation entry error:", error);
     return NextResponse.json(
       { error: "Không thể tạo entry", details: String(error) },
       { status: 500 },

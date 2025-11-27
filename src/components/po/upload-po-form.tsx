@@ -12,10 +12,13 @@ const initialState: UploadState = {
 };
 
 type UploadPoFormProps = {
+  projectId: string;
   showInlineStatus?: boolean;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 };
 
-export function UploadPoForm({ showInlineStatus = false }: UploadPoFormProps) {
+export function UploadPoForm({ projectId, showInlineStatus = false, onSuccess, onCancel }: UploadPoFormProps) {
   const [state, action, pending] = useActionState(uploadPoFile, initialState);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
@@ -25,9 +28,15 @@ export function UploadPoForm({ showInlineStatus = false }: UploadPoFormProps) {
 
   useEffect(() => {
     if (state?.success && state?.fileId) {
-      router.push(`/files/${state.fileId}`);
+      // Call onSuccess callback if provided, otherwise redirect
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        // Fallback: redirect to file detail page
+        router.push(`/files/${state.fileId}`);
+      }
     }
-  }, [state?.success, state?.fileId, router]);
+  }, [state?.success, state?.fileId, router, onSuccess]);
 
   const ellipsizeMiddle = (text: string, max = 10) => {
     if (text.length <= max) return text;
@@ -44,6 +53,9 @@ export function UploadPoForm({ showInlineStatus = false }: UploadPoFormProps) {
 
   return (
     <form action={action} className="space-y-4">
+      {/* Hidden input for projectId */}
+      <input type="hidden" name="projectId" value={projectId} />
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">Tải tệp .po mới</h2>
@@ -69,7 +81,18 @@ export function UploadPoForm({ showInlineStatus = false }: UploadPoFormProps) {
           />
         </label>
       </div>
-      <div className="flex w-full justify-end">
+
+      <div className="flex w-full justify-end gap-3">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            className="w-40 justify-center inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/10 px-6 py-2 text-sm font-semibold text-white transition hover:border-white/40 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Hủy
+          </button>
+        )}
         <button
           type="submit"
           disabled={pending}

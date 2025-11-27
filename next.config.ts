@@ -19,9 +19,22 @@ const nextConfig: ExtendedNextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "avatars.githubusercontent.com",
+        hostname: "**",
+        port: "",
+        pathname: "/**",
       },
     ],
+  },
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
+  // Tắt source maps trong production
+  productionBrowserSourceMaps: false,
+  // Turbopack config cho Next.js 16
+  turbopack: {
+    // Turbopack sẽ tự xử lý source maps
   },
 };
 

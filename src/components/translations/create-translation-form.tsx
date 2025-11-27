@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 type ToastState = {
   show: boolean;
@@ -10,14 +9,16 @@ type ToastState = {
   message: string;
 };
 
-export function CreateTranslationForm() {
+type Props = {
+  projectId: string;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+};
+
+export function CreateTranslationForm({ projectId, onSuccess, onCancel }: Props) {
   const [pending, setPending] = useState(false);
   const [toast, setToast] = useState<ToastState>({ show: false, success: false, message: "" });
-  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
   const router = useRouter();
-
-  const toastKey = toast.show ? `${Number(toast.success)}-${toast.message}` : null;
-  const showToast = toast.show && dismissedKey !== toastKey;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -49,6 +50,7 @@ export function CreateTranslationForm() {
           name: name.trim(),
           language: language.trim(),
           description: description?.trim() || null,
+          projectId: projectId, // Required from props
         }),
       });
 
@@ -70,11 +72,18 @@ export function CreateTranslationForm() {
         message: `Đã tạo bảng dịch "${result.data.name}" thành công`,
       });
 
-      // Chuyển hướng sau 1.5 giây để người dùng thấy toast
-      setTimeout(() => {
-        router.push(`/translations/${result.data.id}`);
-        router.refresh();
-      }, 1500);
+      // Call onSuccess callback if provided, otherwise redirect
+      if (onSuccess) {
+        setTimeout(() => {
+          onSuccess();
+        }, 1500);
+      } else {
+        // Fallback: redirect to translation detail page
+        setTimeout(() => {
+          router.push(`/translations/${result.data.id}`);
+          router.refresh();
+        }, 1500);
+      }
     } catch (error) {
       console.error(error);
       setToast({
@@ -88,7 +97,7 @@ export function CreateTranslationForm() {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="rounded-2xl border border-white/10 bg-slate-950/40 p-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-4">
           <div className="flex flex-col gap-2">
             <label htmlFor="name" className="text-sm font-semibold text-slate-300">
@@ -140,17 +149,21 @@ export function CreateTranslationForm() {
             >
               {pending ? "Đang tạo..." : "Tạo bảng dịch"}
             </button>
-            <Link
-              href="/translations"
-              className="cursor-pointer rounded-full border border-white/10 px-6 py-2 text-sm font-semibold text-white transition hover:border-white/40"
-            >
-              Hủy
-            </Link>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={pending}
+                className="cursor-pointer rounded-full border border-white/10 px-6 py-2 text-sm font-semibold text-white transition hover:border-white/40 disabled:opacity-60"
+              >
+                Hủy
+              </button>
+            )}
           </div>
         </div>
       </form>
 
-      {showToast && toast ? (
+      {toast.show && (
         <div
           className={`fixed bottom-6 right-6 z-50 max-w-sm rounded-2xl px-4 py-3 text-sm shadow-lg ${
             toast.success
@@ -164,7 +177,7 @@ export function CreateTranslationForm() {
             </span>
             <button
               type="button"
-              onClick={() => setDismissedKey(toastKey)}
+              onClick={() => setToast({ show: false, success: false, message: "" })}
               className="cursor-pointer rounded-md bg-white/10 px-2 py-0.5 text-xs font-medium text-white/80 hover:bg-white/20"
             >
               Đóng
@@ -172,7 +185,7 @@ export function CreateTranslationForm() {
           </div>
           <p className="mt-1 text-white/90">{toast.message}</p>
         </div>
-      ) : null}
+      )}
     </>
   );
 }

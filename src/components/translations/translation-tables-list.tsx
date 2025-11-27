@@ -4,12 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Trash2, X } from "lucide-react";
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { Role } from "@prisma/client";
 
 type TranslationTable = {
   id: string;
   name: string;
   language: string | null;
   description: string | null;
+  projectId?: string | null;
   _count: {
     entries: number;
   };
@@ -190,26 +193,36 @@ export function TranslationTablesList({ tables }: Props) {
             </span>
           </div>
           {canDeleteSelected && (
-            <button
-              type="button"
-              onClick={handleDeleteSelected}
-              disabled={pending}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+            <PermissionGuard
+              requiredRole={Role.ADMIN}
+              showError={false}
             >
-              <Trash2 className="size-4" />
-              Xóa {selectedIds.size} mục đã chọn
-            </button>
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                disabled={pending}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 className="size-4" />
+                Xóa {selectedIds.size} mục đã chọn
+              </button>
+            </PermissionGuard>
           )}
           {canDeleteAll && (
-            <button
-              type="button"
-              onClick={handleDeleteAll}
-              disabled={pending}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+            <PermissionGuard
+              requiredRole={Role.ADMIN}
+              showError={false}
             >
-              <Trash2 className="size-4" />
-              Xóa tất cả
-            </button>
+              <button
+                type="button"
+                onClick={handleDeleteAll}
+                disabled={pending}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 className="size-4" />
+                Xóa tất cả
+              </button>
+            </PermissionGuard>
           )}
         </div>
       )}
@@ -238,19 +251,25 @@ export function TranslationTablesList({ tables }: Props) {
                     onChange={() => toggleSelect(table.id)}
                     className="cursor-pointer rounded border-white/20 bg-slate-900 text-sky-500 focus:ring-2 focus:ring-sky-500"
                   />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDeleteSingle(table);
-                    }}
-                    disabled={pending}
-                    className="cursor-pointer rounded-lg p-1.5 text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
-                    title="Xóa bảng dịch"
+                  <PermissionGuard
+                    requiredRole={Role.ADMIN}
+                    projectId={table.projectId || undefined}
+                    showError={false}
                   >
-                    <Trash2 className="size-4" />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDeleteSingle(table);
+                      }}
+                      disabled={pending}
+                      className="cursor-pointer rounded-lg p-1.5 text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      title="Xóa bảng dịch"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </PermissionGuard>
                 </div>
                 <Link
                   href={`/translations/${table.id}`}

@@ -4,6 +4,9 @@ import { Download } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PoEntriesPanel } from "@/components/po/po-entries-panel";
 import { SearchForm } from "@/components/search-form";
+import { requireAuth } from "@/lib/middleware/auth";
+import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
 
 type FileDetailPageProps = {
   params: Promise<{
@@ -22,16 +25,48 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export default async function FileDetailPage({ params, searchParams }: FileDetailPageProps) {
+  // Authentication check
+  const authResult = await requireAuth();
+  if (!authResult.authenticated) {
+    redirect("/login");
+  }
+
+  const user = authResult.user;
   const { fileId } = await params;
   const resolvedSearchParams = await searchParams;
   const query = typeof resolvedSearchParams?.q === "string" ? resolvedSearchParams.q.trim() : "";
 
   const file = await prisma.poFile.findUnique({
     where: { id: fileId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          isPublic: true,
+        },
+      },
+    },
   });
 
   if (!file) {
     notFound();
+  }
+
+  // Check access permission
+  if (!user) {
+    redirect("/login");
+  }
+
+  const isAdmin = user.systemRole === Role.ADMIN;
+  const isPublicProject = file.project?.isPublic || false;
+  const userProjectIds = user.projectRoles.map((pr) => pr.projectId);
+  const hasProjectAccess = file.projectId
+    ? userProjectIds.includes(file.projectId)
+    : false;
+
+  if (!isAdmin && !isPublicProject && !hasProjectAccess) {
+    redirect("/projects?error=access_denied");
   }
 
   const metadata = await prisma.poFileMetadata.findMany({
@@ -59,9 +94,30 @@ export default async function FileDetailPage({ params, searchParams }: FileDetai
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 md:px-8">
       <div className="flex flex-col gap-2">
-        <Link href="/files" className="text-xs font-semibold text-slate-400">
-          ← Danh sách tệp
-        </Link>
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+          <Link href="/projects" className="transition hover:text-white">
+            Projects
+          </Link>
+          {file.projectId && file.project ? (
+            <>
+              <span>/</span>
+              <Link
+                href={`/projects/${file.projectId}`}
+                className="transition hover:text-white"
+              >
+                {file.project.name}
+              </Link>
+              <span>/</span>
+              <span className="text-slate-300">PO File</span>
+            </>
+          ) : (
+            <>
+              <span>/</span>
+              <span className="text-slate-300">PO File</span>
+            </>
+          )}
+        </div>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <h1 className="text-3xl font-semibold text-white">{file.filename}</h1>
