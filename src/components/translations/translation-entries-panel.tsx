@@ -10,6 +10,13 @@ import {
   TRANSLATION_PROVIDERS,
   type TranslationProvider,
 } from "@/lib/constants";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PAGE_SIZES = [10, 20, 30, 50, 100, 200, 500, 1000];
 const STORAGE_KEYS = {
@@ -470,56 +477,65 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
           <h2 className="text-2xl font-semibold text-white">
             {tableName ? `Bảng: ${tableName}` : "Chưa chọn bảng"}
           </h2>
-          <p className="text-sm text-slate-300">
-            Chọn dòng để xem chi tiết hoặc chỉnh sửa nội dung.
-          </p>
           <p
-            className={`mt-1 min-h-[18px] text-xs transition-colors ${
-              selectedIds.size > 0 && exceedsProviderLimit ? "text-rose-400" : "text-slate-400"
+            className={`text-sm transition-colors ${
+              selectedIds.size > 0 && exceedsProviderLimit
+                ? "text-rose-400"
+                : selectedIds.size > 0
+                  ? "text-slate-300"
+                  : "text-slate-300"
             }`}
           >
             {selectedIds.size > 0 ? (
               <>
-                Ký tự dự kiến gửi tới {providerLabel}:{" "}
+                Đã chọn {selectedIds.size} dòng • Ký tự:{" "}
                 <strong>
                   {selectedCharacterCount.toLocaleString()} / {providerLimit.toLocaleString()}
                 </strong>{" "}
                 (gói Free)
               </>
             ) : (
-              `Chọn dòng để kích hoạt dịch hàng loạt bằng ${providerLabel}.`
+              `Chọn dòng để xem chi tiết, chỉnh sửa hoặc dịch hàng loạt bằng ${providerLabel}`
             )}
           </p>
         </div>
         <div className="flex flex-col gap-3 md:items-end">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <div className="flex items-center gap-2 text-xs text-slate-400">
-              <label className="font-semibold">Số dòng/trang</label>
-              <select
-                value={pageSize}
-                onChange={(event) => handlePageSizeChange(Number(event.target.value))}
-                className="h-8 cursor-pointer rounded-full border border-white/10 bg-transparent px-2 text-xs text-white"
+              <label className="font-semibold whitespace-nowrap">Số dòng/trang</label>
+              <Select
+                value={pageSize.toString()}
+                onValueChange={(value) => handlePageSizeChange(Number(value))}
               >
-                {PAGE_SIZES.map((size) => (
-                  <option key={size} value={size} className="bg-slate-900 text-white">
-                    {size} dòng
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-8 min-w-[110px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZES.map((size) => (
+                    <SelectItem key={size} value={size.toString()}>
+                      {size} dòng
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-400">
-              <label className="font-semibold">Nhà cung cấp</label>
-              <select
+              <label className="font-semibold whitespace-nowrap">Nhà cung cấp</label>
+              <Select
                 value={provider}
-                onChange={(event) => handleProviderChange(event.target.value as TranslationProvider)}
-                className="h-8 cursor-pointer rounded-full border border-white/10 bg-transparent px-2 text-xs text-white"
+                onValueChange={(value) => handleProviderChange(value as TranslationProvider)}
               >
-                {TRANSLATION_PROVIDERS.map((option) => (
-                  <option key={option.id} value={option.id} className="bg-slate-900 text-white">
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-8 min-w-[100px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRANSLATION_PROVIDERS.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">

@@ -15,6 +15,13 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { Role } from '@prisma/client';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Member {
   id: string;
@@ -367,16 +374,17 @@ function AddMemberModal({
             <label className="mb-1.5 block text-sm font-medium text-white">
               Vai trò *
             </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white focus:border-sky-400 focus:outline-none"
-            >
-              <option value={Role.VIEWER}>Viewer</option>
-              <option value={Role.EDITOR}>Editor</option>
-              <option value={Role.REVIEWER}>Reviewer</option>
-              <option value={Role.ADMIN}>Admin</option>
-            </select>
+            <Select value={role} onValueChange={(value) => setRole(value as Role)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={Role.VIEWER}>Viewer</SelectItem>
+                <SelectItem value={Role.EDITOR}>Editor</SelectItem>
+                <SelectItem value={Role.REVIEWER}>Reviewer</SelectItem>
+                <SelectItem value={Role.ADMIN}>Admin</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex gap-3">
@@ -477,16 +485,17 @@ function EditMemberModal({
             <label className="mb-1.5 block text-sm font-medium text-white">
               Vai trò *
             </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white focus:border-sky-400 focus:outline-none"
-            >
-              <option value={Role.VIEWER}>Viewer</option>
-              <option value={Role.EDITOR}>Editor</option>
-              <option value={Role.REVIEWER}>Reviewer</option>
-              <option value={Role.ADMIN}>Admin</option>
-            </select>
+            <Select value={role} onValueChange={(value) => setRole(value as Role)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={Role.VIEWER}>Viewer</SelectItem>
+                <SelectItem value={Role.EDITOR}>Editor</SelectItem>
+                <SelectItem value={Role.REVIEWER}>Reviewer</SelectItem>
+                <SelectItem value={Role.ADMIN}>Admin</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex gap-3">

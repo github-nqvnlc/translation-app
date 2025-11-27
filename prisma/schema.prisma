@@ -10,62 +10,62 @@ datasource db {
 }
 
 model PoFile {
-  id         String    @id @default(cuid())
+  id         String           @id @default(cuid())
   filename   String
   filesize   Int
-  uploadedAt DateTime  @default(now())
+  uploadedAt DateTime         @default(now())
   language   String?
-  projectId  String?   // Optional: liên kết với project
-  project    Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId  String? // Optional: liên kết với project
+  project    Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   metadata   PoFileMetadata[]
   entries    PoEntry[]
 }
 
 model PoEntry {
-  id        Int      @id @default(autoincrement())
-  msgid     String
-  msgstr    String
+  id          Int      @id @default(autoincrement())
+  msgid       String
+  msgstr      String
   description String?
   references  String?
-  fileId    String
-  file      PoFile   @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  fileId      String
+  file        PoFile   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
 
   @@index([fileId])
 }
 
 model PoFileMetadata {
-  id      Int     @id @default(autoincrement())
-  key     String
-  value   String
-  fileId  String
-  file    PoFile  @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  id     Int    @id @default(autoincrement())
+  key    String
+  value  String
+  fileId String
+  file   PoFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@unique([fileId, key])
 }
 
 model TranslationTable {
-  id          String              @id @default(cuid())
+  id          String             @id @default(cuid())
   name        String
   language    String
   description String?
-  projectId   String?             // Optional: liên kết với project
-  project     Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  projectId   String? // Optional: liên kết với project
+  project     Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
   entries     TranslationEntry[]
 }
 
 model TranslationEntry {
-  id          Int                @id @default(autoincrement())
-  sourceText  String
+  id             Int              @id @default(autoincrement())
+  sourceText     String
   translatedText String
-  description String?
-  references  String?
-  tableId     String
-  table       TranslationTable   @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  description    String?
+  references     String?
+  tableId        String
+  table          TranslationTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@index([tableId])
 }
@@ -82,42 +82,51 @@ enum Role {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
-  emailVerified     Boolean   @default(false)
-  emailVerifiedAt   DateTime?
-  passwordHash      String?   // null nếu chỉ dùng OAuth
-  name              String?
-  image             String?   // URL avatar từ OAuth
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  lastLoginAt       DateTime?
-  lastLoginIp       String?
-  
+  id              String    @id @default(cuid())
+  email           String    @unique
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+  passwordHash    String? // null nếu chỉ dùng OAuth
+  name            String?
+  image           String? // URL avatar từ OAuth
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lastLoginAt     DateTime?
+  lastLoginIp     String?
+
   // OAuth accounts
-  accounts          Account[]
-  
+  accounts Account[]
+
   // Sessions
-  sessions          Session[]
-  refreshTokens     RefreshToken[]
-  
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+
   // Roles & Permissions
   projectMemberships ProjectMember[]
   systemRole         SystemRole? // Admin toàn hệ thống
-  
+
   // Audit logs
-  auditLogs          AuditLog[]
-  
+  auditLogs AuditLog[]
+
+  // Profile settings
+  profileSettings UserProfileSettings?
+
+  // Avatar interactions
+  avatarLikesGiven       AvatarLike[]    @relation("AvatarLiker")
+  avatarLikesReceived    AvatarLike[]    @relation("AvatarLiked")
+  avatarCommentsWritten  AvatarComment[] @relation("AvatarCommentAuthor")
+  avatarCommentsReceived AvatarComment[] @relation("AvatarCommentTarget")
+
   @@index([email])
   @@index([emailVerified])
 }
 
 model Account {
-  id                String   @id @default(cuid())
+  id                String  @id @default(cuid())
   userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type              String   // "oauth" | "credentials"
-  provider          String   // "google" | "github" | "credentials"
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String // "oauth" | "credentials"
+  provider          String // "google" | "github" | "credentials"
   providerAccountId String
   accessToken       String?
   refreshToken      String?
@@ -126,69 +135,69 @@ model Account {
   scope             String?
   idToken           String?
   sessionState      String?
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([provider, providerAccountId])
   @@index([userId])
 }
 
 model Session {
-  id                String   @id @default(cuid())
-  sessionToken      String   @unique
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt         DateTime
-  ipAddress         String?
-  userAgent         String?
-  createdAt         DateTime @default(now())
-  
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
   @@index([userId])
   @@index([sessionToken])
   @@index([expiresAt])
 }
 
 model RefreshToken {
-  id                String   @id @default(cuid())
-  token             String   @unique
-  tokenHash         String   // Hashed version để lưu trong DB
+  id                String    @id @default(cuid())
+  token             String    @unique
+  tokenHash         String // Hashed version để lưu trong DB
   userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt         DateTime
   revokedAt         DateTime?
-  replacedByTokenId String?  // Token mới thay thế (token rotation)
+  replacedByTokenId String? // Token mới thay thế (token rotation)
   ipAddress         String?
   userAgent         String?
-  createdAt         DateTime @default(now())
-  
+  createdAt         DateTime  @default(now())
+
   @@index([userId])
   @@index([tokenHash])
   @@index([expiresAt])
 }
 
 model VerificationToken {
-  id                String   @id @default(cuid())
-  identifier        String   // Email hoặc token identifier
-  token             String   @unique
-  tokenHash         String
-  type              String   // "email_verification" | "password_reset"
-  expiresAt         DateTime
-  createdAt         DateTime @default(now())
-  
+  id         String   @id @default(cuid())
+  identifier String // Email hoặc token identifier
+  token      String   @unique
+  tokenHash  String
+  type       String // "email_verification" | "password_reset"
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
   @@index([tokenHash])
   @@index([identifier, type])
 }
 
 model LoginAttempt {
-  id                String   @id @default(cuid())
-  email             String
-  ipAddress         String
-  userAgent         String?
-  success           Boolean
-  failureReason     String?  // "invalid_password" | "email_not_verified" | "account_locked"
-  createdAt         DateTime @default(now())
-  
+  id            String   @id @default(cuid())
+  email         String
+  ipAddress     String
+  userAgent     String?
+  success       Boolean
+  failureReason String? // "invalid_password" | "email_not_verified" | "account_locked"
+  createdAt     DateTime @default(now())
+
   @@index([email, createdAt])
   @@index([ipAddress, createdAt])
 }
@@ -198,84 +207,141 @@ model LoginAttempt {
 // ============================================
 
 model Project {
-  id                String    @id @default(cuid())
-  name              String
-  description       String?
-  isPublic          Boolean   @default(false) // Project công khai cho Viewer
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  createdBy         String    // User ID tạo project
-  
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isPublic    Boolean  @default(false) // Project công khai cho Viewer
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String // User ID tạo project
+
   // Relations
   members           ProjectMember[]
   translationTables TranslationTable[]
   poFiles           PoFile[]
-  
+
   @@index([createdBy])
   @@index([isPublic])
 }
 
 model ProjectMember {
-  id                String   @id @default(cuid())
-  projectId         String
-  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role              Role     @default(VIEWER)
-  invitedBy         String?  // User ID mời
-  joinedAt          DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @default(VIEWER)
+  invitedBy String? // User ID mời
+  joinedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([projectId, userId])
   @@index([userId])
   @@index([projectId])
 }
 
 model SystemRole {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role              Role     @default(ADMIN) // Chỉ có ADMIN cho system role
-  grantedBy         String   // User ID cấp quyền
-  grantedAt         DateTime @default(now())
-  
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @default(ADMIN) // Chỉ có ADMIN cho system role
+  grantedBy String // User ID cấp quyền
+  grantedAt DateTime @default(now())
+
   @@index([userId])
 }
 
 model Permission {
-  id                String   @id @default(cuid())
-  name              String   @unique // "view_entries", "edit_entries", "delete_entries", etc.
-  description       String?
-  resourceType      String   // "entry", "file", "project", "user", etc.
-  action            String   // "view", "create", "update", "delete", "approve", etc.
-  
-  rolePermissions   RolePermission[]
-  
+  id           String  @id @default(cuid())
+  name         String  @unique // "view_entries", "edit_entries", "delete_entries", etc.
+  description  String?
+  resourceType String // "entry", "file", "project", "user", etc.
+  action       String // "view", "create", "update", "delete", "approve", etc.
+
+  rolePermissions RolePermission[]
+
   @@index([resourceType, action])
 }
 
 model RolePermission {
-  id                String   @id @default(cuid())
-  role              Role
-  permissionId      String
-  permission        Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  
+  id           String     @id @default(cuid())
+  role         Role
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
   @@unique([role, permissionId])
   @@index([role])
 }
 
+model UserProfileSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Profile info
+  bio String? @db.Text
+
+  // Privacy settings - hiển thị gì trên profile
+  showEmail             Boolean @default(false)
+  showProjects          Boolean @default(true)
+  showTranslationTables Boolean @default(true)
+  showPoFiles           Boolean @default(true)
+  showEntriesCount      Boolean @default(true)
+  showActivityChart     Boolean @default(true)
+  showLanguageStats     Boolean @default(true)
+  showProjectStats      Boolean @default(true)
+  showRecentActivity    Boolean @default(true)
+  showPosts             Boolean @default(true)
+
+  // Avatar privacy settings
+  showAvatarLikes     Boolean @default(true)
+  allowAvatarComments Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Avatar interactions
+model AvatarLike {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("AvatarLiker", fields: [userId], references: [id], onDelete: Cascade)
+  targetUserId String
+  targetUser   User     @relation("AvatarLiked", fields: [targetUserId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, targetUserId])
+  @@index([targetUserId])
+}
+
+model AvatarComment {
+  id           String   @id @default(cuid())
+  content      String   @db.Text
+  authorId     String
+  author       User     @relation("AvatarCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  targetUserId String
+  targetUser   User     @relation("AvatarCommentTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([targetUserId])
+  @@index([authorId])
+}
+
 model AuditLog {
-  id                String   @id @default(cuid())
-  userId            String?
-  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action            String   // "role_changed", "permission_granted", "project_created", etc.
-  resourceType      String   // "user", "project", "entry", etc.
-  resourceId        String?
-  details           Json?    // Chi tiết thay đổi (before/after)
-  ipAddress         String?
-  userAgent         String?
-  createdAt         DateTime @default(now())
-  
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action       String // "role_changed", "permission_granted", "project_created", etc.
+  resourceType String // "user", "project", "entry", etc.
+  resourceId   String?
+  details      Json? // Chi tiết thay đổi (before/after)
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
   @@index([userId, createdAt])
   @@index([resourceType, resourceId])
   @@index([action, createdAt])

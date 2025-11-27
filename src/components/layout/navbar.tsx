@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   LogOut,
@@ -202,9 +203,20 @@ export default function Navbar() {
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-500/20 to-purple-500/20 p-0.5 transition hover:from-sky-500/30 hover:to-purple-500/30"
               >
-                <div className="flex size-8 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-sky-400">
-                  {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
-                </div>
+                {user.image ? (
+                  <Image
+                    src={user.image}
+                    alt={user.name || user.email}
+                    width={32}
+                    height={32}
+                    className="rounded-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex size-8 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-sky-400">
+                    {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                  </div>
+                )}
               </button>
 
               {showUserMenu && (
@@ -225,6 +237,14 @@ export default function Navbar() {
                     </div>
 
                     <div className="py-1">
+                      <Link
+                        href={`/users/${user.id}`}
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+                      >
+                        <User className="size-4" />
+                        Hồ sơ
+                      </Link>
                       <Link
                         href="/settings/sessions"
                         onClick={() => setShowUserMenu(false)}

@@ -13,6 +13,13 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { Role } from '@prisma/client';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface User {
   id: string;
@@ -206,18 +213,22 @@ export default function UsersList() {
             className="w-full rounded-2xl border border-white/10 bg-white/5 px-11 py-2.5 text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
           />
         </div>
-        <select
+        <Select
           value={emailVerifiedFilter}
-          onChange={(e) => {
-            setEmailVerifiedFilter(e.target.value);
+          onValueChange={(value) => {
+            setEmailVerifiedFilter(value);
             setPage(1);
           }}
-          className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-white focus:border-sky-400 focus:outline-none"
         >
-          <option value="">Tất cả email</option>
-          <option value="true">Đã xác minh</option>
-          <option value="false">Chưa xác minh</option>
-        </select>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Tất cả email" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Tất cả email</SelectItem>
+            <SelectItem value="true">Đã xác minh</SelectItem>
+            <SelectItem value="false">Chưa xác minh</SelectItem>
+          </SelectContent>
+        </Select>
         <button
           onClick={handleSearch}
           className="rounded-2xl bg-sky-500 px-6 py-2.5 font-semibold text-white transition hover:bg-sky-600"
