@@ -12,6 +12,7 @@ const navLinks = [
   { href: "/files", label: "Danh sách tệp" },
   { href: "/upload", label: "Upload tệp" },
   { href: "/translations", label: "Bảng dịch" },
+  { href: "/docs", label: "Tài liệu" },
   { href: "/about", label: "Về tác giả" },
 ];
 
@@ -25,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+        <div className="flex min-h-screen flex-col bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
           <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/80 backdrop-blur">
             <nav className="mx-auto flex max-w-[1440px] items-center justify-between px-4 py-4 md:px-8">
               <Link href="/" className="text-lg font-semibold tracking-wide text-white">
@@ -44,9 +45,9 @@ export default function RootLayout({
               </div>
             </nav>
           </header>
-          <main>{children}</main>
+          <main className="flex-1">{children}</main>
           <footer className="border-t border-white/10 bg-slate-950/80">
-            <div className="mx-auto flex max-w-[1440px] flex-col items-start gap-1 px-4 py-4 text-sm text-slate-300 md:items-end md:px-8">
+            <div className="mx-auto flex max-w-[1440px] flex-col items-start gap-1 px-4 py-15 text-sm text-slate-300 md:items-end md:px-8">
               <p className="text-2xl font-semibold text-white">Translation Workspace</p>
               <div className="flex flex-wrap items-center gap-3 text-md text-slate-400">
                 <Link
