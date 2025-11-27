@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 type FormState = {
@@ -63,6 +65,8 @@ export default function RegisterForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const validateForm = (): boolean => {
     const nextErrors: FormErrors = {};
@@ -246,14 +250,27 @@ export default function RegisterForm() {
           <Lock className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
           <input
             id="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             autoComplete="new-password"
             value={formState.password}
             onChange={(event) => handleChange('password', event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-11 py-3 text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
+            className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-12 text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
             placeholder="••••••••"
             required
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-950"
+            aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
+            aria-pressed={showPassword}
+          >
+            {showPassword ? (
+              <EyeOff className="size-4" />
+            ) : (
+              <Eye className="size-4" />
+            )}
+          </button>
         </div>
         {errors.password && (
           <p className="text-sm text-red-300">{errors.password}</p>
@@ -281,16 +298,31 @@ export default function RegisterForm() {
           <Lock className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
           <input
             id="confirmPassword"
-            type="password"
+            type={showConfirmPassword ? 'text' : 'password'}
             autoComplete="new-password"
             value={formState.confirmPassword}
             onChange={(event) =>
               handleChange('confirmPassword', event.target.value)
             }
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-11 py-3 text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
+            className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-12 text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
             placeholder="••••••••"
             required
           />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword((prev) => !prev)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-950"
+            aria-label={
+              showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'
+            }
+            aria-pressed={showConfirmPassword}
+          >
+            {showConfirmPassword ? (
+              <EyeOff className="size-4" />
+            ) : (
+              <Eye className="size-4" />
+            )}
+          </button>
         </div>
         {errors.confirmPassword && (
           <p className="text-sm text-red-300">{errors.confirmPassword}</p>

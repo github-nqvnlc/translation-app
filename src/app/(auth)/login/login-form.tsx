@@ -12,6 +12,8 @@ import {
   ArrowRight,
   AlertTriangle,
   CheckCircle2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -52,6 +54,7 @@ export default function LoginForm() {
   const [isRedirectingProvider, setIsRedirectingProvider] = useState<
     'google' | 'github' | null
   >(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const validate = () => {
     const nextErrors: LoginErrors = {};
@@ -198,7 +201,7 @@ export default function LoginForm() {
               <Lock className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
               <input
                 id="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => {
@@ -206,10 +209,23 @@ export default function LoginForm() {
                   setErrors((prev) => ({ ...prev, password: undefined }));
                   setServerError('');
                 }}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-11 py-3 text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
+                className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-12 text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
                 placeholder="••••••••"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-950"
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
+              </button>
             </div>
             {errors.password && (
               <p className="text-sm text-red-300">{errors.password}</p>
