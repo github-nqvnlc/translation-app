@@ -3,6 +3,7 @@
 import { useActionState, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { uploadPoFile } from "@/app/actions/po-actions";
+import { usePermission } from "@/hooks/use-permission";
 
 type UploadState = Awaited<ReturnType<typeof uploadPoFile>>;
 
@@ -15,13 +16,45 @@ type UploadPoFormProps = {
   showInlineStatus?: boolean;
 };
 
+type Project = {
+  id: string;
+  name: string;
+  isPublic: boolean;
+};
+
 export function UploadPoForm({ showInlineStatus = false }: UploadPoFormProps) {
   const [state, action, pending] = useActionState(uploadPoFile, initialState);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const router = useRouter();
+  const { user, isLoading: isLoadingUser } = usePermission();
   const toastKey = state?.message ? `${Number(state.success)}-${state.message}` : null;
   const showToast = toastKey !== null && dismissedKey !== toastKey;
+
+  useEffect(() => {
+    if (user && !isLoadingUser) {
+      loadProjects();
+    }
+  }, [user, isLoadingUser]);
+
+  const loadProjects = async () => {
+    try {
+      setLoadingProjects(true);
+      const response = await fetch("/api/projects");
+      const result = await response.json();
+
+      if (response.ok && result.data) {
+        setProjects(result.data);
+      }
+    } catch (error) {
+      console.error("Load projects error:", error);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
 
   useEffect(() => {
     if (state?.success && state?.fileId) {
@@ -69,6 +102,31 @@ export function UploadPoForm({ showInlineStatus = false }: UploadPoFormProps) {
           />
         </label>
       </div>
+
+      {/* Project Selector */}
+      {!loadingProjects && projects.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <label htmlFor="projectId" className="text-sm font-semibold text-slate-300">
+            Project (tùy chọn)
+          </label>
+          <select
+            id="projectId"
+            name="projectId"
+            value={selectedProjectId}
+            onChange={(e) => setSelectedProjectId(e.target.value)}
+            disabled={pending}
+            className="rounded-xl border border-white/10 bg-slate-900/50 px-4 py-2 text-sm text-white transition focus:border-sky-500/50 focus:outline-none focus:ring-2 focus:ring-sky-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">Không chọn project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name} {project.isPublic ? "(Public)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="flex w-full justify-end">
         <button
           type="submit"

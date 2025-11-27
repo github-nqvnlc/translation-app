@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { usePermission } from "@/hooks/use-permission";
 
 type ToastState = {
   show: boolean;
@@ -10,14 +11,46 @@ type ToastState = {
   message: string;
 };
 
+type Project = {
+  id: string;
+  name: string;
+  isPublic: boolean;
+};
+
 export function CreateTranslationForm() {
   const [pending, setPending] = useState(false);
   const [toast, setToast] = useState<ToastState>({ show: false, success: false, message: "" });
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const router = useRouter();
+  const { user, isLoading: isLoadingUser } = usePermission();
 
   const toastKey = toast.show ? `${Number(toast.success)}-${toast.message}` : null;
   const showToast = toast.show && dismissedKey !== toastKey;
+
+  useEffect(() => {
+    if (user && !isLoadingUser) {
+      loadProjects();
+    }
+  }, [user, isLoadingUser]);
+
+  const loadProjects = async () => {
+    try {
+      setLoadingProjects(true);
+      const response = await fetch("/api/projects");
+      const result = await response.json();
+
+      if (response.ok && result.data) {
+        setProjects(result.data);
+      }
+    } catch (error) {
+      console.error("Load projects error:", error);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -49,6 +82,7 @@ export function CreateTranslationForm() {
           name: name.trim(),
           language: language.trim(),
           description: description?.trim() || null,
+          projectId: selectedProjectId || null,
         }),
       });
 
@@ -90,6 +124,29 @@ export function CreateTranslationForm() {
     <>
       <form onSubmit={handleSubmit} className="rounded-2xl border border-white/10 bg-slate-950/40 p-6">
         <div className="space-y-4">
+          {/* Project Selector */}
+          {!loadingProjects && projects.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="projectId" className="text-sm font-semibold text-slate-300">
+                Project (tùy chọn)
+              </label>
+              <select
+                id="projectId"
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                disabled={pending}
+                className="rounded-xl border border-white/10 bg-slate-900/50 px-4 py-2 text-sm text-white transition focus:border-sky-500/50 focus:outline-none focus:ring-2 focus:ring-sky-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">Không chọn project</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name} {project.isPublic ? "(Public)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
             <label htmlFor="name" className="text-sm font-semibold text-slate-300">
               Tên bảng dịch *

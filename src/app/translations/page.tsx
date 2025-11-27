@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { Plus } from "lucide-react";
 import { TranslationTablesList } from "@/components/translations/translation-tables-list";
 import { SearchForm } from "@/components/search-form";
+import { requireAuth } from "@/lib/middleware/auth";
+import { redirect } from "next/navigation";
 
 type TranslationsPageProps = {
   searchParams?:
@@ -18,23 +20,65 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export default async function TranslationsPage({ searchParams }: TranslationsPageProps) {
+  // Authentication check
+  const authResult = await requireAuth();
+  if (!authResult.authenticated) {
+    redirect("/login");
+  }
+
+  const user = authResult.user;
+  if (!user) {
+    redirect("/login");
+  }
+
   const resolvedSearchParams = await searchParams;
   const query =
     typeof resolvedSearchParams?.q === "string" ? resolvedSearchParams.q.trim() : "";
 
+  // Build where clause with project filtering
+  const whereClause: {
+    project?: { OR: Array<{ id?: { in: string[] }; isPublic?: boolean }> };
+    OR?: Array<{
+      name?: { contains: string };
+      language?: { contains: string };
+      description?: { contains: string };
+    }>;
+  } = {};
+
+  // Filter by project membership
+  if (user.systemRole !== "ADMIN") {
+    // Regular users: only see tables from their projects or public projects
+    const userProjectIds = user.projectRoles.map((pr) => pr.projectId);
+    whereClause.project = {
+      OR: [
+        { id: { in: userProjectIds } },
+        { isPublic: true },
+      ],
+    };
+  }
+  // Admin sees all tables
+
+  // Add search query
+  if (query) {
+    whereClause.OR = [
+      { name: { contains: query } },
+      { language: { contains: query } },
+      { description: { contains: query } },
+    ];
+  }
+
   const tables = await prisma.translationTable.findMany({
-    where: query
-      ? {
-          OR: [
-            { name: { contains: query } },
-            { language: { contains: query } },
-            { description: { contains: query } },
-          ],
-        }
-      : undefined,
+    where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
     include: {
       _count: {
         select: { entries: true },
+      },
+      project: {
+        select: {
+          id: true,
+          name: true,
+          isPublic: true,
+        },
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -65,7 +109,14 @@ export default async function TranslationsPage({ searchParams }: TranslationsPag
 
       <SearchForm placeholder="Nhập tên bảng dịch, ngôn ngữ hoặc mô tả" basePath="/translations" />
 
-      <TranslationTablesList tables={tables} />
+      <TranslationTablesList tables={tables.map((table) => ({
+        id: table.id,
+        name: table.name,
+        language: table.language,
+        description: table.description,
+        projectId: table.projectId,
+        _count: table._count,
+      }))} />
     </div>
   );
 }

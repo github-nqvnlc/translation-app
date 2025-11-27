@@ -4,6 +4,9 @@ import { Download } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PoEntriesPanel } from "@/components/po/po-entries-panel";
 import { SearchForm } from "@/components/search-form";
+import { requireAuth } from "@/lib/middleware/auth";
+import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
 
 type FileDetailPageProps = {
   params: Promise<{
@@ -22,16 +25,48 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export default async function FileDetailPage({ params, searchParams }: FileDetailPageProps) {
+  // Authentication check
+  const authResult = await requireAuth();
+  if (!authResult.authenticated) {
+    redirect("/login");
+  }
+
+  const user = authResult.user;
   const { fileId } = await params;
   const resolvedSearchParams = await searchParams;
   const query = typeof resolvedSearchParams?.q === "string" ? resolvedSearchParams.q.trim() : "";
 
   const file = await prisma.poFile.findUnique({
     where: { id: fileId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          isPublic: true,
+        },
+      },
+    },
   });
 
   if (!file) {
     notFound();
+  }
+
+  // Check access permission
+  if (!user) {
+    redirect("/login");
+  }
+
+  const isAdmin = user.systemRole === Role.ADMIN;
+  const isPublicProject = file.project?.isPublic || false;
+  const userProjectIds = user.projectRoles.map((pr) => pr.projectId);
+  const hasProjectAccess = file.projectId
+    ? userProjectIds.includes(file.projectId)
+    : false;
+
+  if (!isAdmin && !isPublicProject && !hasProjectAccess) {
+    redirect("/files?error=access_denied");
   }
 
   const metadata = await prisma.poFileMetadata.findMany({

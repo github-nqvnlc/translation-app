@@ -1,10 +1,22 @@
 import { UploadPoForm } from "@/components/po/upload-po-form";
+import { requireAuth } from "@/lib/middleware/auth";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Upload tệp .po | Translation Workspace",
 };
 
-export default function UploadPage() {
+export default async function UploadPage() {
+  // Authentication check
+  const authResult = await requireAuth();
+  if (!authResult.authenticated) {
+    redirect("/login");
+  }
+
+  // Check email verification
+  if (!authResult.user?.emailVerified) {
+    redirect("/verify-email");
+  }
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-12 md:px-8">
       <header className="space-y-3">

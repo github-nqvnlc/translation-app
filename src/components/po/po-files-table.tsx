@@ -4,6 +4,8 @@ import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, X } from "lucide-react";
 import Link from "next/link";
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { Role } from "@prisma/client";
 
 export type PoFileRecord = {
   id: string;
@@ -12,6 +14,7 @@ export type PoFileRecord = {
   uploadedAt: string;
   entryCount: number;
   language?: string | null;
+  projectId?: string | null;
 };
 
 type Props = {
@@ -208,26 +211,36 @@ export function PoFilesTable({ files, activeFileId }: Props) {
               </span>
             </div>
             {canDeleteSelected && (
-              <button
-                type="button"
-                onClick={handleDeleteSelected}
-                disabled={pending}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+              <PermissionGuard
+                requiredRole={Role.ADMIN}
+                showError={false}
               >
-                <Trash2 className="size-4" />
-                Xóa {selected.size} mục đã chọn
-              </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteSelected}
+                  disabled={pending}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Trash2 className="size-4" />
+                  Xóa {selected.size} mục đã chọn
+                </button>
+              </PermissionGuard>
             )}
             {canDeleteAll && (
-              <button
-                type="button"
-                onClick={handleDeleteAll}
-                disabled={pending}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+              <PermissionGuard
+                requiredRole={Role.ADMIN}
+                showError={false}
               >
-                <Trash2 className="size-4" />
-                Xóa tất cả
-              </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAll}
+                  disabled={pending}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Trash2 className="size-4" />
+                  Xóa tất cả
+                </button>
+              </PermissionGuard>
             )}
           </div>
         )}
@@ -294,15 +307,21 @@ export function PoFilesTable({ files, activeFileId }: Props) {
                         : new Date(file.uploadedAt).toISOString().replace("T", " ").slice(0, 19)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteSingle(file)}
-                        disabled={pending}
-                        className="cursor-pointer rounded-lg p-1.5 text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
-                        title="Xóa file"
+                      <PermissionGuard
+                        requiredRole={Role.ADMIN}
+                        projectId={file.projectId || undefined}
+                        showError={false}
                       >
-                        <Trash2 className="size-4" />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSingle(file)}
+                          disabled={pending}
+                          className="cursor-pointer rounded-lg p-1.5 text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                          title="Xóa file"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </PermissionGuard>
                     </td>
                   </tr>
                 );

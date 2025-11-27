@@ -1,6 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseEntryPayload } from "@/lib/utils/po-payload";
+import { requireAuth, createAuthErrorResponse } from "@/lib/middleware/auth";
+import { requireAuthAndPermission } from "@/lib/middleware/rbac";
+import { Role } from "@prisma/client";
 
 type RouteContext = {
   params: Promise<{
@@ -8,15 +11,59 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(request: Request, { params }: RouteContext) {
-  const { id } = await params;
-  const { searchParams } = new URL(request.url);
-  const query = searchParams.get("q")?.trim();
-  const page = Number(searchParams.get("page") ?? 1);
-  const pageSize = Number(searchParams.get("pageSize") ?? 25);
-  const skip = Math.max(0, (page - 1) * pageSize);
+export async function GET(request: NextRequest, { params }: RouteContext) {
+  try {
+    // Authentication check
+    const authResult = await requireAuth();
+    if (!authResult.authenticated || !authResult.user) {
+      return createAuthErrorResponse(authResult);
+    }
 
-  const [entries, total] = await prisma.$transaction([
+    const user = authResult.user;
+    const { id } = await params;
+
+    // Check file access
+    const file = await prisma.poFile.findUnique({
+      where: { id },
+      include: {
+        project: {
+          select: {
+            id: true,
+            isPublic: true,
+          },
+        },
+      },
+    });
+
+    if (!file) {
+      return NextResponse.json(
+        { error: "File không tồn tại" },
+        { status: 404 }
+      );
+    }
+
+    // Check access permission
+    const isAdmin = user.systemRole === Role.ADMIN;
+    const isPublicProject = file.project?.isPublic || false;
+    const userProjectIds = user.projectRoles.map((pr) => pr.projectId);
+    const hasProjectAccess = file.projectId
+      ? userProjectIds.includes(file.projectId)
+      : false;
+
+    if (!isAdmin && !isPublicProject && !hasProjectAccess) {
+      return NextResponse.json(
+        { error: "Bạn không có quyền truy cập file này" },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const query = searchParams.get("q")?.trim();
+    const page = Number(searchParams.get("page") ?? 1);
+    const pageSize = Number(searchParams.get("pageSize") ?? 25);
+    const skip = Math.max(0, (page - 1) * pageSize);
+
+    const [entries, total] = await prisma.$transaction([
     prisma.poEntry.findMany({
       where: {
         fileId: id,
@@ -50,37 +97,123 @@ export async function GET(request: Request, { params }: RouteContext) {
           : {}),
       },
     }),
-  ]);
+    ]);
 
-  return NextResponse.json({
-    data: entries,
-    pagination: {
-      page,
-      pageSize,
-      total,
-    },
-  });
-}
-
-export async function POST(request: Request, { params }: RouteContext) {
-  const { id } = await params;
-  const body = await request.json();
-  const [entry] = parseEntryPayload([body]);
-
-  if (!entry) {
+    return NextResponse.json({
+      data: entries,
+      pagination: {
+        page,
+        pageSize,
+        total,
+      },
+    });
+  } catch (error) {
+    console.error("Get entries error:", error);
     return NextResponse.json(
-      { error: "msgid và msgstr là bắt buộc" },
-      { status: 400 },
+      { error: "Đã xảy ra lỗi khi lấy danh sách entries" },
+      { status: 500 }
     );
   }
+}
 
-  const created = await prisma.poEntry.create({
-    data: {
-      fileId: id,
-      ...entry,
-    },
-  });
+export async function POST(request: NextRequest, { params }: RouteContext) {
+  try {
+    // Authentication and permission check
+    const permissionResult = await requireAuthAndPermission("create_entries");
+    if (permissionResult.error) {
+      return permissionResult.error;
+    }
 
-  return NextResponse.json({ data: created }, { status: 201 });
+    const user = permissionResult.user;
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+
+    // Check file access
+    const file = await prisma.poFile.findUnique({
+      where: { id },
+      include: {
+        project: {
+          select: {
+            id: true,
+            isPublic: true,
+          },
+        },
+      },
+    });
+
+    if (!file) {
+      return NextResponse.json(
+        { error: "File không tồn tại" },
+        { status: 404 }
+      );
+    }
+
+    // Check access permission
+    const isAdmin = user.systemRole === Role.ADMIN;
+    const isPublicProject = file.project?.isPublic || false;
+    const userProjectIds = user.projectRoles.map((pr) => pr.projectId);
+    const hasProjectAccess = file.projectId
+      ? userProjectIds.includes(file.projectId)
+      : false;
+
+    if (!isAdmin && !isPublicProject && !hasProjectAccess) {
+      return NextResponse.json(
+        { error: "Bạn không có quyền thêm entries vào file này" },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const entries = Array.isArray(body) ? body : [body];
+    const parsedEntries = parseEntryPayload(entries);
+
+    if (parsedEntries.length === 0) {
+      return NextResponse.json(
+        { error: "msgid và msgstr là bắt buộc" },
+        { status: 400 },
+      );
+    }
+
+    const created = await prisma.poEntry.createMany({
+      data: parsedEntries.map((entry) => ({
+        fileId: id,
+        ...entry,
+      })),
+    });
+
+    // Create audit log
+    const { getClientIp, getUserAgent } = await import("@/lib/auth");
+    const ipAddress = getClientIp(request);
+    const userAgent = getUserAgent(request);
+
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "entry_created",
+        resourceType: "po_entry",
+        resourceId: id,
+        details: {
+          fileId: id,
+          entryCount: parsedEntries.length,
+        },
+        ipAddress,
+        userAgent,
+      },
+    });
+
+    return NextResponse.json({ data: { count: created.count } }, { status: 201 });
+  } catch (error) {
+    console.error("Create entries error:", error);
+    return NextResponse.json(
+      { error: "Không thể tạo entry", details: String(error) },
+      { status: 500 },
+    );
+  }
 }
 

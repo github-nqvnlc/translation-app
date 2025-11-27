@@ -45,6 +45,8 @@ export async function uploadPoFile(
     return { success: false, message: "Không tìm thấy msgid/msgstr trong tệp" };
   }
 
+  const projectId = formData.get("projectId")?.toString() || null;
+
   const metadataData = Object.entries(parsed.metadata).map(([key, value]) => ({
     key,
     value,
@@ -55,6 +57,7 @@ export async function uploadPoFile(
       filename: file.name,
       filesize: file.size,
       language: parsed.language ?? null,
+      projectId: projectId || null,
       ...(metadataData.length
         ? {
             metadata: {
