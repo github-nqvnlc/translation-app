@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { parsePo } from "@/lib/po-parser";
+import { getAuthenticatedUser } from "@/lib/middleware/auth";
+import { Role } from "@prisma/client";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
@@ -45,7 +47,49 @@ export async function uploadPoFile(
     return { success: false, message: "Không tìm thấy msgid/msgstr trong tệp" };
   }
 
-  const projectId = formData.get("projectId")?.toString() || null;
+  // Authentication check
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return { success: false, message: "Bạn cần đăng nhập để upload file" };
+  }
+
+  // Check email verification
+  if (!user.emailVerified) {
+    return { success: false, message: "Vui lòng xác minh email trước khi upload file" };
+  }
+
+  // Validate projectId is required
+  const projectId = formData.get("projectId")?.toString();
+  if (!projectId || typeof projectId !== "string") {
+    return { success: false, message: "projectId là bắt buộc" };
+  }
+
+  // Validate project access
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      members: {
+        where: { userId: user.id },
+      },
+    },
+  });
+
+  if (!project) {
+    return { success: false, message: "Project không tồn tại" };
+  }
+
+  const isAdmin = user.systemRole === Role.ADMIN;
+  const isMember = project.members.length > 0;
+  const hasEditorRole = project.members.some(
+    (m) => m.role === Role.EDITOR || m.role === Role.REVIEWER || m.role === Role.ADMIN
+  );
+
+  if (!isAdmin && (!isMember || !hasEditorRole)) {
+    return {
+      success: false,
+      message: "Bạn cần quyền EDITOR trở lên để upload file vào project này",
+    };
+  }
 
   const metadataData = Object.entries(parsed.metadata).map(([key, value]) => ({
     key,
@@ -57,7 +101,7 @@ export async function uploadPoFile(
       filename: file.name,
       filesize: file.size,
       language: parsed.language ?? null,
-      projectId: projectId || null,
+      projectId: projectId, // Required, not nullable
       ...(metadataData.length
         ? {
             metadata: {

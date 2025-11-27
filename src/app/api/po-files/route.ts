@@ -19,14 +19,18 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get("q")?.trim() ?? "";
 
     // Build where clause with project filtering
+    // Only return files that have a projectId (required)
     const whereClause: {
+      projectId: { not: null };
       project?: { OR: Array<{ id?: { in: string[] }; isPublic?: boolean }> };
       OR?: Array<{
         filename?: { contains: string };
         language?: { contains: string };
         metadata?: { some: { OR: Array<{ key?: { contains: string }; value?: { contains: string } }> } };
       }>;
-    } = {};
+    } = {
+      projectId: { not: null },
+    };
 
     // Filter by project membership
     if (user.systemRole !== Role.ADMIN) {
@@ -58,7 +62,7 @@ export async function GET(request: NextRequest) {
     }
 
     const files = await prisma.poFile.findMany({
-      where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+      where: whereClause,
       orderBy: { uploadedAt: "desc" },
       include: {
         metadata: true,
@@ -127,34 +131,42 @@ export async function POST(request: NextRequest) {
     const metadataData = parseMetadataPayload(metadata);
     const entryData = parseEntryPayload(entries);
 
-    // Validate project access if projectId is provided
-    if (projectId) {
-      const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        include: {
-          members: {
-            where: { userId: user.id },
-          },
+    // Validate projectId is required
+    if (!projectId || typeof projectId !== "string") {
+      return NextResponse.json(
+        { error: "projectId là bắt buộc" },
+        { status: 400 }
+      );
+    }
+
+    // Validate project access
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        members: {
+          where: { userId: user.id },
         },
-      });
+      },
+    });
 
-      if (!project) {
-        return NextResponse.json(
-          { error: "Project không tồn tại" },
-          { status: 404 }
-        );
-      }
+    if (!project) {
+      return NextResponse.json(
+        { error: "Project không tồn tại" },
+        { status: 404 }
+      );
+    }
 
-      const isAdmin = user.systemRole === Role.ADMIN;
-      const isMember = project.members.length > 0;
-      const isPublic = project.isPublic;
+    const isAdmin = user.systemRole === Role.ADMIN;
+    const isMember = project.members.length > 0;
+    const hasEditorRole = project.members.some(
+      (m) => m.role === Role.EDITOR || m.role === Role.REVIEWER || m.role === Role.ADMIN
+    );
 
-      if (!isAdmin && !isMember && !isPublic) {
-        return NextResponse.json(
-          { error: "Bạn không có quyền upload file vào project này" },
-          { status: 403 }
-        );
-      }
+    if (!isAdmin && (!isMember || !hasEditorRole)) {
+      return NextResponse.json(
+        { error: "Bạn cần quyền EDITOR trở lên để upload file vào project này" },
+        { status: 403 }
+      );
     }
 
     const created = await prisma.poFile.create({
@@ -162,7 +174,7 @@ export async function POST(request: NextRequest) {
         filename,
         filesize: Number(filesize) || 0,
         language: typeof language === "string" ? language : null,
-        projectId: projectId || null,
+        projectId: projectId, // Required, not nullable
         metadata: metadataData.length
           ? {
               createMany: {
@@ -203,7 +215,7 @@ export async function POST(request: NextRequest) {
           filename: created.filename,
           filesize: created.filesize,
           entryCount: entryData.length,
-          projectId: projectId || null,
+          projectId: projectId,
         },
         ipAddress,
         userAgent,

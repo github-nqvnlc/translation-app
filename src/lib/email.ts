@@ -112,7 +112,8 @@ async function sendEmailSendGrid(options: EmailOptions): Promise<{ success: bool
  * Send email using SMTP (NodeMailer would be needed for production)
  * This is a placeholder - in production, use nodemailer
  */
-async function sendEmailSMTP(options: EmailOptions): Promise<{ success: boolean; error?: string }> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function sendEmailSMTP(_options: EmailOptions): Promise<{ success: boolean; error?: string }> {
   // For production, install nodemailer: npm install nodemailer
   // This is a placeholder implementation
   console.warn('SMTP email provider not fully implemented. Install nodemailer for production use.');

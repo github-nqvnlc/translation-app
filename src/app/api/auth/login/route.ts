@@ -14,7 +14,8 @@ import {
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
 
-async function checkRateLimit(email: string, ipAddress: string): Promise<{
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function checkRateLimit(email: string, _ipAddress: string): Promise<{
   allowed: boolean;
   remainingAttempts?: number;
   lockoutUntil?: Date;
@@ -222,7 +223,7 @@ export async function POST(request: NextRequest) {
       roles,
     };
 
-    const accessToken = generateAccessToken(tokenPayload, rememberMe);
+    generateAccessToken(tokenPayload, rememberMe); // Token is set in cookie, not used directly
     const refreshToken = generateRefreshToken(tokenPayload);
 
     // Calculate token expiry

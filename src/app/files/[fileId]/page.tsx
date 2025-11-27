@@ -66,7 +66,7 @@ export default async function FileDetailPage({ params, searchParams }: FileDetai
     : false;
 
   if (!isAdmin && !isPublicProject && !hasProjectAccess) {
-    redirect("/files?error=access_denied");
+    redirect("/projects?error=access_denied");
   }
 
   const metadata = await prisma.poFileMetadata.findMany({
@@ -94,9 +94,30 @@ export default async function FileDetailPage({ params, searchParams }: FileDetai
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 md:px-8">
       <div className="flex flex-col gap-2">
-        <Link href="/files" className="text-xs font-semibold text-slate-400">
-          ← Danh sách tệp
-        </Link>
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+          <Link href="/projects" className="transition hover:text-white">
+            Projects
+          </Link>
+          {file.projectId && file.project ? (
+            <>
+              <span>/</span>
+              <Link
+                href={`/projects/${file.projectId}`}
+                className="transition hover:text-white"
+              >
+                {file.project.name}
+              </Link>
+              <span>/</span>
+              <span className="text-slate-300">PO File</span>
+            </>
+          ) : (
+            <>
+              <span>/</span>
+              <span className="text-slate-300">PO File</span>
+            </>
+          )}
+        </div>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <h1 className="text-3xl font-semibold text-white">{file.filename}</h1>

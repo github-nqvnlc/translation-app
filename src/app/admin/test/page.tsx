@@ -50,7 +50,7 @@ export default function AdminTestPage() {
         success: response.ok,
         message: data.message || (response.ok ? 'Email đã được gửi!' : 'Gửi email thất bại'),
       });
-    } catch (error) {
+    } catch {
       setResult({ success: false, message: 'Lỗi kết nối server' });
     } finally {
       setSending(false);

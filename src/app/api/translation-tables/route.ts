@@ -14,9 +14,13 @@ export async function GET() {
     const user = authResult.user;
 
     // Build where clause with project filtering
+    // Only return tables that have a projectId (required)
     const whereClause: {
+      projectId: { not: null };
       project?: { OR: Array<{ id?: { in: string[] }; isPublic?: boolean }> };
-    } = {};
+    } = {
+      projectId: { not: null },
+    };
 
     // Filter by project membership
     if (user.systemRole !== Role.ADMIN) {
@@ -30,7 +34,7 @@ export async function GET() {
     }
 
     const tables = await prisma.translationTable.findMany({
-      where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+      where: whereClause,
       include: {
         _count: {
           select: { entries: true },
@@ -92,34 +96,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Ngôn ngữ là bắt buộc" }, { status: 400 });
     }
 
-    // Validate project access if projectId is provided
-    if (projectId) {
-      const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        include: {
-          members: {
-            where: { userId: user.id },
-          },
+    // Validate projectId is required
+    if (!projectId || typeof projectId !== "string") {
+      return NextResponse.json(
+        { error: "projectId là bắt buộc" },
+        { status: 400 }
+      );
+    }
+
+    // Validate project access
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        members: {
+          where: { userId: user.id },
         },
-      });
+      },
+    });
 
-      if (!project) {
-        return NextResponse.json(
-          { error: "Project không tồn tại" },
-          { status: 404 }
-        );
-      }
+    if (!project) {
+      return NextResponse.json(
+        { error: "Project không tồn tại" },
+        { status: 404 }
+      );
+    }
 
-      const isAdmin = user.systemRole === Role.ADMIN;
-      const isMember = project.members.length > 0;
-      const isPublic = project.isPublic;
+    const isAdmin = user.systemRole === Role.ADMIN;
+    const isMember = project.members.length > 0;
+    const hasEditorRole = project.members.some(
+      (m) => m.role === Role.EDITOR || m.role === Role.REVIEWER || m.role === Role.ADMIN
+    );
 
-      if (!isAdmin && !isMember && !isPublic) {
-        return NextResponse.json(
-          { error: "Bạn không có quyền tạo bảng dịch trong project này" },
-          { status: 403 }
-        );
-      }
+    if (!isAdmin && (!isMember || !hasEditorRole)) {
+      return NextResponse.json(
+        { error: "Bạn cần quyền EDITOR trở lên để tạo bảng dịch trong project này" },
+        { status: 403 }
+      );
     }
 
     const created = await prisma.translationTable.create({
@@ -127,7 +139,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         language: language.trim(),
         description: typeof description === "string" ? description.trim() : null,
-        projectId: projectId || null,
+        projectId: projectId, // Required, not nullable
       },
       include: {
         _count: {
@@ -157,7 +169,7 @@ export async function POST(request: NextRequest) {
         details: {
           name: created.name,
           language: created.language,
-          projectId: projectId || null,
+          projectId: projectId,
         },
         ipAddress,
         userAgent,

@@ -17,6 +17,8 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { Role } from '@prisma/client';
+import { TranslationTablesTab } from './translation-tables-tab';
+import { PoFilesTab } from './po-files-tab';
 
 interface Project {
   id: string;
@@ -44,7 +46,7 @@ interface Project {
   }>;
 }
 
-type Tab = 'overview' | 'members' | 'settings';
+type Tab = 'overview' | 'members' | 'translation-tables' | 'po-files' | 'settings';
 
 export default function ProjectDetail() {
   const params = useParams();
@@ -226,6 +228,8 @@ export default function ProjectDetail() {
           {[
             { id: 'overview' as Tab, label: 'Tổng quan', icon: FileText },
             { id: 'members' as Tab, label: 'Thành viên', icon: Users },
+            { id: 'translation-tables' as Tab, label: 'Translation Tables', icon: FileText },
+            { id: 'po-files' as Tab, label: 'PO Files', icon: FileText },
             { id: 'settings' as Tab, label: 'Cài đặt', icon: Settings },
           ].map((tab) => (
             <button
@@ -280,6 +284,14 @@ export default function ProjectDetail() {
 
         {activeTab === 'members' && (
           <MembersTab projectId={projectId} members={project.members} />
+        )}
+
+        {activeTab === 'translation-tables' && (
+          <TranslationTablesTab projectId={projectId} userRole={project.userRole} />
+        )}
+
+        {activeTab === 'po-files' && (
+          <PoFilesTab projectId={projectId} userRole={project.userRole} />
         )}
 
         {activeTab === 'settings' && canEdit && (

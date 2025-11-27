@@ -12,7 +12,6 @@ import {
   Folder,
   FileText,
   Languages,
-  Upload,
   Shield,
   Home,
   BookOpen,
@@ -81,9 +80,7 @@ export default function Navbar() {
 
   const workspaceLinks = [
     { href: '/projects', label: 'Dự án', icon: Folder },
-    { href: '/files', label: 'Danh sách tệp', icon: FileText },
-    { href: '/upload', label: 'Upload tệp', icon: Upload },
-    { href: '/translations', label: 'Bảng dịch', icon: Languages },
+    // Removed: /files, /upload, /translations - now managed within projects
   ];
 
   const isActive = (href: string) => {
