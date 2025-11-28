@@ -27,6 +27,7 @@ export interface AuthResult {
 /**
  * Get authenticated user from session token
  * Returns user info if authenticated, null otherwise
+ * Optimized for performance with minimal queries
  */
 export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> {
   try {
@@ -37,15 +38,27 @@ export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> 
       return null;
     }
 
-    // Find session in database
+    // Optimized query: only fetch what we need, check expiration first
     const session = await prisma.session.findUnique({
       where: { sessionToken },
-      include: {
+      select: {
+        id: true,
+        expiresAt: true,
         user: {
-          include: {
-            systemRole: true,
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+            emailVerified: true,
+            systemRole: {
+              select: {
+                role: true,
+              },
+            },
             projectMemberships: {
-              include: {
+              select: {
+                role: true,
                 project: {
                   select: {
                     id: true,
@@ -65,10 +78,8 @@ export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> 
 
     // Check if session is expired
     if (session.expiresAt < new Date()) {
-      // Delete expired session
-      await prisma.session.delete({
-        where: { id: session.id },
-      });
+      // Delete expired session (non-blocking)
+      prisma.session.delete({ where: { id: session.id } }).catch(console.error);
       return null;
     }
 

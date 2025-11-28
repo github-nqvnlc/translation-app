@@ -36,6 +36,9 @@ const nextConfig: ExtendedNextConfig = {
   turbopack: {
     // Turbopack sẽ tự xử lý source maps
   },
+  // Optimize for Vercel
+  compress: true,
+  poweredByHeader: false,
 };
 
 export default nextConfig;

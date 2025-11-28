@@ -13,14 +13,31 @@ if (!datasourceUrl) {
   throw new Error("DATABASE_URL is required to initialize PrismaClient");
 }
 
+// Optimize connection pool for Vercel serverless
 const pool =
-  globalThis.prismaPgPool ?? new Pool({ connectionString: datasourceUrl });
+  globalThis.prismaPgPool ??
+  new Pool({
+    connectionString: datasourceUrl,
+    // Optimize for serverless: smaller pool, faster timeouts
+    max: 1, // Vercel serverless functions are short-lived
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    // Enable connection reuse
+    allowExitOnIdle: true,
+  });
+
 const adapter = new PrismaPg(pool);
 
+// Prisma Client with optimized settings for production
 export const prisma =
-  globalThis.prisma ?? new PrismaClient({ adapter });
+  globalThis.prisma ??
+  new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+  });
 
-if (process.env.NODE_ENV !== "production") {
+// Cache Prisma Client in globalThis for both dev and production (Vercel serverless)
+if (!globalThis.prisma) {
   globalThis.prisma = prisma;
   globalThis.prismaPgPool = pool;
 }
