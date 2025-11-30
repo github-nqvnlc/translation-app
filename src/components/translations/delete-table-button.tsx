@@ -28,7 +28,7 @@ export function DeleteTableButton({ tableId, tableName }: Props) {
         throw new Error("Xóa thất bại");
       }
 
-      router.push("/translations");
+      router.push("/projects");
       router.refresh();
     } catch (error) {
       console.error(error);
@@ -42,10 +42,11 @@ export function DeleteTableButton({ tableId, tableName }: Props) {
       type="button"
       onClick={handleDelete}
       disabled={deleting}
-      className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-500/30 bg-transparent px-6 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-red-500/30 bg-transparent px-3 text-sm font-medium text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
+      title="Xóa bảng dịch"
     >
-      <Trash2 className="size-4" />
-      Xóa bảng
+      <Trash2 className="h-4 w-4" />
+      <span className="hidden sm:inline">Xóa</span>
     </button>
   );
 }

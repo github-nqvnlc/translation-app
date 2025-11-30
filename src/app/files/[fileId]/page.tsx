@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Download } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PoEntriesPanel } from "@/components/po/po-entries-panel";
 import { SearchForm } from "@/components/search-form";
+import { ExportMenu } from "@/components/po/export-menu";
 import { requireAuth } from "@/lib/middleware/auth";
 import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
@@ -92,81 +92,56 @@ export default async function FileDetailPage({ params, searchParams }: FileDetai
   });
 
   return (
-    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 md:px-8">
-      <div className="flex flex-col gap-2">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-          <Link href="/projects" className="transition hover:text-white">
-            Projects
-          </Link>
-          {file.projectId && file.project ? (
-            <>
-              <span>/</span>
-              <Link
-                href={`/projects/${file.projectId}`}
-                className="transition hover:text-white"
-              >
-                {file.project.name}
-              </Link>
-              <span>/</span>
-              <span className="text-slate-300">PO File</span>
-            </>
-          ) : (
-            <>
-              <span>/</span>
-              <span className="text-slate-300">PO File</span>
-            </>
-          )}
+    <div className="mx-auto w-full max-w-7xl px-4 py-4 md:px-6">
+      {/* Breadcrumb */}
+      <div className="mb-3 flex items-center gap-2 text-xs text-slate-400">
+        <Link href="/projects" className="transition hover:text-white">
+          Projects
+        </Link>
+        {file.projectId && file.project ? (
+          <>
+            <span>/</span>
+            <Link
+              href={`/projects/${file.projectId}`}
+              className="transition hover:text-white"
+            >
+              {file.project.name}
+            </Link>
+            <span>/</span>
+            <span className="text-slate-300">PO File</span>
+          </>
+        ) : (
+          <>
+            <span>/</span>
+            <span className="text-slate-300">PO File</span>
+          </>
+        )}
+      </div>
+
+      {/* Header */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex-1 min-w-0">
+          <h1 className="truncate text-2xl font-semibold text-white sm:text-3xl">
+            {file.filename}
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            {file.language ?? "Không xác định"} · {entries.length} bản dịch
+          </p>
         </div>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <h1 className="text-3xl font-semibold text-white">{file.filename}</h1>
-            <p className="text-sm text-slate-400">
-              Ngôn ngữ: {file.language ?? "Không xác định"} · {entries.length} bản dịch
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <a
-              href={`/api/po-files/${fileId}/export`}
-              download={file.filename}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
-            >
-              <Download className="size-4" />
-              Xuất .po
-            </a>
-            <a
-              href={`/api/po-files/${fileId}/export/csv`}
-              download={`${file.filename.replace(/\.po$/, "")}.csv`}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-transparent px-6 py-2 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/5"
-            >
-              <Download className="size-4" />
-              Xuất CSV
-            </a>
-            <a
-              href={`/api/po-files/${fileId}/export/excel`}
-              download={`${file.filename.replace(/\.po$/, "")}.xlsx`}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-transparent px-6 py-2 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/5"
-            >
-              <Download className="size-4" />
-              Xuất Excel
-            </a>
-            <a
-              href={`/api/po-files/${fileId}/export/json`}
-              download={`${file.filename.replace(/\.po$/, "")}.json`}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-transparent px-6 py-2 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/5"
-            >
-              <Download className="size-4" />
-              Xuất JSON
-            </a>
-          </div>
+        <div className="flex-shrink-0">
+          <ExportMenu fileId={fileId} filename={file.filename} />
         </div>
       </div>
 
-      <SearchForm
-        placeholder="Nhập msgid, msgstr, ngữ cảnh hoặc vị trí áp dụng"
-        basePath={`/files/${fileId}`}
-      />
+      {/* Search */}
+      <div className="mb-4">
+        <SearchForm
+          placeholder="Tìm kiếm msgid, msgstr, ngữ cảnh..."
+          basePath={`/files/${fileId}`}
+        />
+      </div>
 
+      {/* Entries Panel */}
       <PoEntriesPanel
         entries={entries.map((entry) => ({
           id: entry.id,
@@ -180,19 +155,20 @@ export default async function FileDetailPage({ params, searchParams }: FileDetai
         language={file.language}
       />
 
-      <div className="flex flex-col gap-4">
-      <h3 className="text-3xl font-semibold text-white">Metadata</h3>
-        {metadata.length ? (
-          <dl className="mt-4 grid gap-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4 text-sm text-slate-200 md:grid-cols-2">
+      {/* Metadata */}
+      {metadata.length > 0 && (
+        <div className="mt-6">
+          <h3 className="mb-3 text-lg font-semibold text-white">Metadata</h3>
+          <dl className="grid gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-4 text-sm text-slate-200 sm:grid-cols-2">
             {metadata.map((item) => (
               <div key={item.id} className="flex flex-col">
                 <dt className="text-xs text-slate-500">{item.key}</dt>
-                <dd className="truncate font-semibold">{item.value}</dd>
+                <dd className="truncate font-medium">{item.value}</dd>
               </div>
             ))}
           </dl>
-        ) : null}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

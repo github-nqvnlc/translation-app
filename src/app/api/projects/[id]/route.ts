@@ -49,6 +49,7 @@ export async function GET(
             poFiles: true,
           },
         },
+        overviewSettings: true,
       },
     });
 
@@ -73,6 +74,13 @@ export async function GET(
 
     const userMembership = project.members.find((m) => m.userId === user.id);
 
+    const overviewSettings = project.overviewSettings ?? {
+      showSummaryCards: true,
+      showCompletionCard: true,
+      showLanguageChart: true,
+      showRecentUpdates: true,
+    };
+
     return NextResponse.json({
       success: true,
       data: {
@@ -96,6 +104,7 @@ export async function GET(
           joinedAt: m.joinedAt,
           updatedAt: m.updatedAt,
         })),
+        overviewSettings,
       },
     });
   } catch (error) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { BookOpenCheck, Pencil, Loader2, X, Plus, Trash2, WandSparkles } from "lucide-react";
 import {
   DEEPL_FREE_CHARACTER_LIMIT,
@@ -37,12 +38,6 @@ type Props = {
   tableName?: string;
   tableId: string;
   targetLanguage?: string;
-};
-
-type ToastState = {
-  show: boolean;
-  success: boolean;
-  message: string;
 };
 
 type ConfirmDialogState = {
@@ -85,18 +80,19 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
     limit: number;
     message?: string;
   } | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{
+    progress: number;
+    current: number;
+    total: number;
+    translated: number;
+  } | null>(null);
   const [provider, setProvider] = useState<TranslationProvider>(DEFAULT_TRANSLATION_PROVIDER);
-  const [toast, setToast] = useState<ToastState>({ show: false, success: false, message: "" });
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
     show: false,
     type: "single",
   });
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
   const router = useRouter();
-
-  const toastKey = toast.show ? `${Number(toast.success)}-${toast.message}` : null;
-  const showToast = toast.show && dismissedKey !== toastKey;
   const canDeleteSelected = selectedIds.size > 0;
   const canDeleteAll = entries.length > 0;
   const allSelected = entries.length > 0 && selectedIds.size === entries.length;
@@ -234,7 +230,6 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
 
     try {
       setTranslating(true);
-      setToast({ show: false, success: false, message: "" });
 
       const endpoint = provider === "gemini" ? "/api/gemini/translate" : "/api/deepl/translate";
       const response = await fetch(endpoint, {
@@ -259,20 +254,13 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
       }
 
       setForm((prev) => ({ ...prev, translatedText: translated }));
-      setToast({
-        show: true,
-        success: true,
-        message: `Đã cập nhật bản dịch từ ${providerLabel}`,
-      });
+      toast.success(`Đã cập nhật bản dịch từ ${providerLabel}`);
     } catch (error) {
-      setToast({
-        show: true,
-        success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : `Không thể lấy bản dịch từ ${providerLabel}. Vui lòng thử lại.`,
-      });
+      const message =
+        error instanceof Error
+          ? error.message
+          : `Không thể lấy bản dịch từ ${providerLabel}. Vui lòng thử lại.`;
+      toast.error(message);
     } finally {
       setTranslating(false);
     }
@@ -282,6 +270,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
     setBatchDialogOpen(true);
     setBatchError(null);
     setBatchSummary(null);
+    setBatchProgress(null);
   };
 
   const closeBatchDialog = () => {
@@ -289,6 +278,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
     setBatchDialogOpen(false);
     setBatchError(null);
     setBatchSummary(null);
+    setBatchProgress(null);
     setOverwriteExisting(false);
   };
 
@@ -300,13 +290,14 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
     try {
       setBatchTranslating(true);
       setBatchError(null);
-      setToast({ show: false, success: false, message: "" });
       setBatchSummary(null);
+      setBatchProgress({ progress: 0, current: 0, total: selectedIds.size, translated: 0 });
 
+      // Use streaming endpoint for progress updates
       const endpoint =
         provider === "gemini"
           ? `/api/translation-tables/${tableId}/entries/batch-translate/gemini`
-          : `/api/translation-tables/${tableId}/entries/batch-translate`;
+          : `/api/translation-tables/${tableId}/entries/batch-translate-stream`;
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -318,29 +309,97 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
         }),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result?.error || "Không thể dịch hàng loạt");
+        const error = await response.json();
+        throw new Error(error?.error || "Không thể dịch hàng loạt");
       }
 
-      setBatchSummary(result?.data);
-      setToast({
-        show: true,
-        success: true,
-        message: `Đã cập nhật ${result?.data?.translatedCount ?? 0} bản dịch bằng ${providerLabel}`,
-      });
+      // Handle streaming response
+      if (provider === "gemini") {
+        // Fallback to regular API for Gemini
+        const result = await response.json();
+        setBatchSummary(result?.data);
+        setBatchProgress(null);
+        toast.success(
+          `Đã cập nhật ${result?.data?.translatedCount ?? 0} bản dịch bằng ${providerLabel}`,
+        );
+        router.refresh();
+      } else {
+        // Stream progress for DeepL
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
 
-      router.refresh();
+        if (!reader) {
+          throw new Error("Không thể đọc response stream");
+        }
+
+        let buffer = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+            for (const line of lines) {
+              if (line.trim() === "") continue;
+              
+              if (line.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (data.type === "progress") {
+                    setBatchProgress({
+                      progress: data.progress,
+                      current: data.current,
+                      total: data.total,
+                      translated: data.translated,
+                    });
+                  } else if (data.type === "complete") {
+                    setBatchSummary(data.data);
+                    setBatchProgress(null);
+                    toast.success(
+                      `Đã cập nhật ${data.data.translatedCount ?? 0} bản dịch bằng ${providerLabel}`,
+                    );
+                    router.refresh();
+                  } else if (data.type === "error") {
+                    throw new Error(data.error || "Đã xảy ra lỗi khi dịch");
+                  }
+                } catch (e) {
+                  console.error("Error parsing stream data:", e, line);
+                }
+              }
+            }
+          }
+
+          // Process any remaining buffer
+          if (buffer.trim() && buffer.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(buffer.slice(6));
+              if (data.type === "complete") {
+                setBatchSummary(data.data);
+                setBatchProgress(null);
+                toast.success(
+                  `Đã cập nhật ${data.data.translatedCount ?? 0} bản dịch bằng ${providerLabel}`,
+                );
+                router.refresh();
+              }
+            } catch (e) {
+              console.error("Error parsing final buffer:", e);
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Không thể dịch hàng loạt. Vui lòng thử lại.";
       setBatchError(message);
-      setToast({
-        show: true,
-        success: false,
-        message,
-      });
+      setBatchProgress(null);
+      toast.error(message);
     } finally {
       setBatchTranslating(false);
     }
@@ -451,19 +510,12 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
         setSelectedIds(new Set());
       }
 
-      setToast({
-        show: true,
-        success: true,
-        message: `Đã xóa ${deletedCount} entry thành công`,
-      });
+      toast.success(`Đã xóa ${deletedCount} entry thành công`);
 
       router.refresh();
     } catch (error) {
-      setToast({
-        show: true,
-        success: false,
-        message: error instanceof Error ? error.message : "Đã xảy ra lỗi khi xóa entry",
-      });
+      const message = error instanceof Error ? error.message : "Đã xảy ra lỗi khi xóa entry";
+      toast.error(message);
     } finally {
       setPending(false);
     }
@@ -500,43 +552,23 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
           </p>
         </div>
         <div className="flex flex-col gap-3 md:items-end">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <label className="font-semibold whitespace-nowrap">Số dòng/trang</label>
-              <Select
-                value={pageSize.toString()}
-                onValueChange={(value) => handlePageSizeChange(Number(value))}
-              >
-                <SelectTrigger className="h-8 min-w-[110px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZES.map((size) => (
-                    <SelectItem key={size} value={size.toString()}>
-                      {size} dòng
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <label className="font-semibold whitespace-nowrap">Nhà cung cấp</label>
-              <Select
-                value={provider}
-                onValueChange={(value) => handleProviderChange(value as TranslationProvider)}
-              >
-                <SelectTrigger className="h-8 min-w-[100px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TRANSLATION_PROVIDERS.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex items-center gap-2 text-xs text-slate-400 sm:justify-end">
+            <label className="font-semibold whitespace-nowrap">Số dòng/trang</label>
+            <Select
+              value={pageSize.toString()}
+              onValueChange={(value) => handlePageSizeChange(Number(value))}
+            >
+              <SelectTrigger className="h-8 min-w-[110px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZES.map((size) => (
+                  <SelectItem key={size} value={size.toString()}>
+                    {size} dòng
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           {entries.length > 0 && (
@@ -552,6 +584,24 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
               </span>
             </div>
           )}
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <label className="font-semibold whitespace-nowrap">Nhà cung cấp</label>
+            <Select
+              value={provider}
+              onValueChange={(value) => handleProviderChange(value as TranslationProvider)}
+            >
+              <SelectTrigger className="h-8 min-w-[100px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TRANSLATION_PROVIDERS.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <button
             type="button"
             onClick={openBatchDialog}
@@ -672,12 +722,12 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
                       ) : null}
                     </td>
                     <td className="max-w-[120px] px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
                           title="Sửa"
                           onClick={() => openEdit(entry)}
-                          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-white/10 text-slate-200 hover:border-white/40"
+                          className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-white/10 text-slate-200 transition hover:border-white/40"
                         >
                           <Pencil className="size-3" />
                         </button>
@@ -685,7 +735,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
                           type="button"
                           title="Xem chi tiết"
                           onClick={() => openFullDetail(entry)}
-                          className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-white/40"
+                          className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 transition hover:border-white/40"
                         >
                           <BookOpenCheck className="size-3" /> #{start + idx + 1}
                         </button>
@@ -694,7 +744,7 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
                           title="Xóa"
                           onClick={() => handleDeleteSingle(entry)}
                           disabled={pending}
-                          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-red-500/30 text-red-400 hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-red-500/30 text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <Trash2 className="size-3" />
                         </button>
@@ -910,6 +960,31 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
                 Ghi đè bản dịch đã có
               </label>
               {batchError ? <p className="text-sm text-rose-400">{batchError}</p> : null}
+              {batchProgress ? (
+                <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4">
+                  <div className="mb-3 flex items-center justify-between text-sm">
+                    <span className="font-semibold text-slate-300">Tiến trình dịch</span>
+                    <span className="text-sky-400">
+                      {batchProgress.progress}%
+                    </span>
+                  </div>
+                  <div className="mb-2 h-3 w-full overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="h-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-300 ease-out"
+                      style={{ width: `${batchProgress.progress}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>
+                      Đã xử lý: <strong className="text-slate-300">{batchProgress.current}</strong> /{" "}
+                      <strong className="text-slate-300">{batchProgress.total}</strong> bản ghi
+                    </span>
+                    <span>
+                      Đã dịch: <strong className="text-sky-400">{batchProgress.translated}</strong>
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               {batchSummary ? (
                 <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 text-xs text-slate-300">
                   <p>Kết quả:</p>
@@ -1042,28 +1117,6 @@ export function TranslationEntriesPanel({ entries, tableName, tableId, targetLan
         </div>
       )}
 
-      {/* Toast */}
-      {showToast && toast ? (
-        <div
-          className={`fixed bottom-6 right-6 z-50 max-w-sm rounded-2xl px-4 py-3 text-sm shadow-lg ${
-            toast.success
-              ? "bg-emerald-500/90 text-white"
-              : "bg-rose-500/90 text-white"
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <span className="font-semibold">{toast.success ? "Thành công" : "Lỗi"}</span>
-            <button
-              type="button"
-              onClick={() => setDismissedKey(toastKey)}
-              className="cursor-pointer rounded-md bg-white/10 px-2 py-0.5 text-xs font-medium text-white/80 hover:bg-white/20"
-            >
-              Đóng
-            </button>
-          </div>
-          <p className="mt-1 text-white/90">{toast.message}</p>
-        </div>
-      ) : null}
     </section>
   );
 }

@@ -33,7 +33,13 @@ export const prisma =
   globalThis.prisma ??
   new PrismaClient({
     adapter,
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+    // Only log errors and warnings to reduce console noise
+    // Set PRISMA_LOG_QUERIES=true to enable query logging for debugging
+    log: process.env.PRISMA_LOG_QUERIES === "true" 
+      ? ["query", "error", "warn"] 
+      : process.env.NODE_ENV === "development" 
+        ? ["error", "warn"] 
+        : ["error"],
   });
 
 // Cache Prisma Client in globalThis for both dev and production (Vercel serverless)

@@ -19,6 +19,7 @@ import {
 import { Role } from '@prisma/client';
 import { TranslationTablesTab } from './translation-tables-tab';
 import { PoFilesTab } from './po-files-tab';
+import { OverviewTab, OverviewSettings } from './overview-tab';
 
 interface Project {
   id: string;
@@ -44,6 +45,7 @@ interface Project {
     role: Role;
     joinedAt: string;
   }>;
+  overviewSettings: OverviewSettings;
 }
 
 type Tab = 'overview' | 'members' | 'translation-tables' | 'po-files' | 'settings';
@@ -61,6 +63,17 @@ export default function ProjectDetail() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const defaultOverviewSettings: OverviewSettings = {
+    showSummaryCards: true,
+    showCompletionCard: true,
+    showLanguageChart: true,
+    showRecentUpdates: true,
+    showTranslatorLeaderboard: true,
+    showTranslatorTimeline: true,
+  };
+  const [overviewSettings, setOverviewSettings] = useState<OverviewSettings>(
+    defaultOverviewSettings,
+  );
 
   useEffect(() => {
     if (projectId) {
@@ -88,7 +101,20 @@ export default function ProjectDetail() {
         return;
       }
 
-      setProject(result.data);
+      const overviewResponse =
+        result.data.overviewSettings ?? defaultOverviewSettings;
+      const settings: OverviewSettings = {
+        showSummaryCards: overviewResponse.showSummaryCards ?? true,
+        showCompletionCard: overviewResponse.showCompletionCard ?? true,
+        showLanguageChart: overviewResponse.showLanguageChart ?? true,
+        showRecentUpdates: overviewResponse.showRecentUpdates ?? true,
+        showTranslatorLeaderboard:
+          overviewResponse.showTranslatorLeaderboard ?? true,
+        showTranslatorTimeline:
+          overviewResponse.showTranslatorTimeline ?? true,
+      };
+      setProject({ ...result.data, overviewSettings: settings });
+      setOverviewSettings(settings);
     } catch (err) {
       console.error('Load project error', err);
       setError('Có lỗi xảy ra khi tải thông tin project');
@@ -251,35 +277,7 @@ export default function ProjectDetail() {
       {/* Tab Content */}
       <div className="min-h-[400px]">
         {activeTab === 'overview' && (
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-6">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
-                <Users className="size-5" />
-                <span className="text-sm font-medium">Thành viên</span>
-              </div>
-              <p className="text-2xl font-bold text-white">
-                {project.memberCount}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-6">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
-                <FileText className="size-5" />
-                <span className="text-sm font-medium">Translation Tables</span>
-              </div>
-              <p className="text-2xl font-bold text-white">
-                {project.translationTableCount}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-6">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
-                <FileText className="size-5" />
-                <span className="text-sm font-medium">PO Files</span>
-              </div>
-              <p className="text-2xl font-bold text-white">
-                {project.poFileCount}
-              </p>
-            </div>
-          </div>
+          <OverviewTab projectId={projectId} settings={overviewSettings} />
         )}
 
         {activeTab === 'members' && (
@@ -295,7 +293,11 @@ export default function ProjectDetail() {
         )}
 
         {activeTab === 'settings' && canEdit && (
-          <SettingsTab />
+          <SettingsTab
+            projectId={projectId}
+            settings={overviewSettings}
+            onSettingsChange={setOverviewSettings}
+          />
         )}
 
         {activeTab === 'settings' && !canEdit && (
@@ -375,14 +377,150 @@ function MembersTab({
   );
 }
 
-function SettingsTab() {
+function SettingsTab({
+  projectId,
+  settings,
+  onSettingsChange,
+}: {
+  projectId: string;
+  settings: OverviewSettings;
+  onSettingsChange: (settings: OverviewSettings) => void;
+}) {
+  const [localSettings, setLocalSettings] =
+    useState<OverviewSettings>(settings);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
+
+  const handleToggle = (key: keyof OverviewSettings) => {
+    setLocalSettings((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage('');
+    setError('');
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/overview-settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(localSettings),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || 'Không thể lưu cài đặt');
+      }
+
+      onSettingsChange(result.data);
+      setMessage('Đã lưu cài đặt hiển thị dashboard');
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Không thể lưu cài đặt',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggles: Array<{
+    key: keyof OverviewSettings;
+    title: string;
+    description: string;
+  }> = [
+    {
+      key: 'showSummaryCards',
+      title: 'Thẻ tổng quan',
+      description: 'Hiển thị số lượng thành viên, bảng dịch và PO files.',
+    },
+    {
+      key: 'showCompletionCard',
+      title: 'Tiến độ dịch',
+      description: 'Hiển thị tỉ lệ entries đã được dịch.',
+    },
+    {
+      key: 'showLanguageChart',
+      title: 'Biểu đồ ngôn ngữ',
+      description: 'Phân bố ngôn ngữ giữa các bảng dịch và PO files.',
+    },
+    {
+      key: 'showRecentUpdates',
+      title: 'Hoạt động gần đây',
+      description: 'Danh sách cập nhật mới nhất của project.',
+    },
+    {
+      key: 'showTranslatorLeaderboard',
+      title: 'Biểu đồ người dịch',
+      description: 'Hiển thị top người đóng góp trong project.',
+    },
+    {
+      key: 'showTranslatorTimeline',
+      title: 'Hoạt động theo thời gian',
+      description: 'Biểu đồ đường theo dõi từng người dịch theo ngày.',
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-white">Cài đặt project</h2>
-      <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-6">
-        <p className="text-slate-400">
-          Các cài đặt chi tiết sẽ được thêm vào sau.
+      <div>
+        <h2 className="text-xl font-semibold text-white">Cài đặt dashboard</h2>
+        <p className="text-sm text-slate-400">
+          Chọn những widget sẽ hiển thị trong tab Tổng quan.
         </p>
+      </div>
+
+      {(error || message) && (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            error
+              ? 'border-red-500/30 bg-red-950/40 text-red-200'
+              : 'border-emerald-500/30 bg-emerald-950/30 text-emerald-100'
+          }`}
+        >
+          {error || message}
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {toggles.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => handleToggle(item.key)}
+            className={`flex flex-col rounded-2xl border px-4 py-4 text-left transition ${
+              localSettings[item.key]
+                ? 'border-sky-500/40 bg-sky-500/10 text-white'
+                : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-white/30'
+            }`}
+          >
+            <span className="text-sm font-semibold">{item.title}</span>
+            <span className="mt-1 text-xs text-slate-400">{item.description}</span>
+            <span className="mt-3 text-xs font-medium">
+              {localSettings[item.key] ? 'Đang hiển thị' : 'Đang ẩn'}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saving && <Loader2 className="size-4 animate-spin" />}
+          Lưu cài đặt
+        </button>
       </div>
     </div>
   );

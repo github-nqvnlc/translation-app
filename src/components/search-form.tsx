@@ -40,37 +40,36 @@ export function SearchForm({ placeholder = "Tìm kiếm...", basePath }: SearchF
   const currentQuery = searchParams.get("q") || "";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-      <label htmlFor="search" className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-        <Search className="size-4" />
-        Tìm kiếm
-      </label>
-      <input
-        id="search"
-        name="q"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={placeholder}
-        disabled={isPending}
-        className="w-full flex-1 rounded-full border border-white/10 bg-transparent px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-white/40 focus:outline-none disabled:opacity-60 md:w-auto"
-      />
-      <button
-        type="submit"
-        disabled={isPending}
-        className="cursor-pointer rounded-full bg-white px-6 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isPending ? "Đang tìm..." : "Search"}
-      </button>
-      {currentQuery ? (
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 p-2">
+      <div className="flex flex-1 items-center gap-2">
+        <Search className="ml-2 h-4 w-4 flex-shrink-0 text-slate-400" />
+        <input
+          id="search"
+          name="q"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder}
+          disabled={isPending}
+          className="w-full flex-1 bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none disabled:opacity-60"
+        />
+      </div>
+      {currentQuery && (
         <button
           type="button"
           onClick={handleClear}
           disabled={isPending}
-          className="text-sm font-semibold text-slate-300 underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex-shrink-0 rounded px-2 py-1 text-xs text-slate-400 transition hover:text-white disabled:opacity-60"
         >
-          Xóa bộ lọc
+          ✕
         </button>
-      ) : null}
+      )}
+      <button
+        type="submit"
+        disabled={isPending}
+        className="flex-shrink-0 rounded-lg bg-white px-4 py-1.5 text-sm font-medium text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isPending ? "..." : "Tìm"}
+      </button>
     </form>
   );
 }

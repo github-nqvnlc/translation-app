@@ -42,7 +42,7 @@ export default function UsersList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [emailVerifiedFilter, setEmailVerifiedFilter] = useState<string>('');
+  const [emailVerifiedFilter, setEmailVerifiedFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -75,7 +75,7 @@ export default function UsersList() {
         params.append('search', search.trim());
       }
 
-      if (emailVerifiedFilter) {
+      if (emailVerifiedFilter !== 'all') {
         params.append('emailVerified', emailVerifiedFilter);
       }
 
@@ -224,7 +224,7 @@ export default function UsersList() {
             <SelectValue placeholder="Tất cả email" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Tất cả email</SelectItem>
+            <SelectItem value="all">Tất cả email</SelectItem>
             <SelectItem value="true">Đã xác minh</SelectItem>
             <SelectItem value="false">Chưa xác minh</SelectItem>
           </SelectContent>

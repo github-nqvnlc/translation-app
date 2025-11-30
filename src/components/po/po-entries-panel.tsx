@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { BookOpenCheck, Pencil, Loader2, X, WandSparkles } from "lucide-react";
 import {
   DEEPL_FREE_CHARACTER_LIMIT,
@@ -68,6 +69,12 @@ export function PoEntriesPanel({ entries, filename, fileId, language }: Props) {
     totalCharacters: number;
     limit: number;
     message?: string;
+  } | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{
+    progress: number;
+    current: number;
+    total: number;
+    translated: number;
   } | null>(null);
   const [provider, setProvider] = useState<TranslationProvider>(DEFAULT_TRANSLATION_PROVIDER);
   const router = useRouter();
@@ -251,6 +258,7 @@ export function PoEntriesPanel({ entries, filename, fileId, language }: Props) {
     setBatchDialogOpen(true);
     setBatchError(null);
     setBatchSummary(null);
+    setBatchProgress(null);
   };
 
   const closeBatchDialog = () => {
@@ -258,6 +266,7 @@ export function PoEntriesPanel({ entries, filename, fileId, language }: Props) {
     setBatchDialogOpen(false);
     setBatchError(null);
     setBatchSummary(null);
+    setBatchProgress(null);
     setOverwriteExisting(false);
   };
 
@@ -270,11 +279,13 @@ export function PoEntriesPanel({ entries, filename, fileId, language }: Props) {
       setBatchTranslating(true);
       setBatchError(null);
       setBatchSummary(null);
+      setBatchProgress({ progress: 0, current: 0, total: selectedIds.size, translated: 0 });
 
+      // Use streaming endpoint for progress updates
       const endpoint =
         provider === "gemini"
           ? `/api/po-files/${fileId}/entries/batch-translate/gemini`
-          : `/api/po-files/${fileId}/entries/batch-translate`;
+          : `/api/po-files/${fileId}/entries/batch-translate-stream`;
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -286,20 +297,103 @@ export function PoEntriesPanel({ entries, filename, fileId, language }: Props) {
         }),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result?.error || "Không thể dịch hàng loạt");
+        const error = await response.json();
+        throw new Error(error?.error || "Không thể dịch hàng loạt");
       }
 
-      setBatchSummary(result?.data);
-      router.refresh();
-      setBatchDialogOpen(false);
-      setSelectedIds(new Set());
+      // Handle streaming response
+      if (provider === "gemini") {
+        // Fallback to regular API for Gemini
+        const result = await response.json();
+        setBatchSummary(result?.data);
+        setBatchProgress(null);
+        toast.success(
+          `Đã cập nhật ${result?.data?.translatedCount ?? 0} bản dịch bằng ${providerLabel}`,
+        );
+        router.refresh();
+        setBatchDialogOpen(false);
+        setSelectedIds(new Set());
+      } else {
+        // Stream progress for DeepL
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          throw new Error("Không thể đọc response stream");
+        }
+
+        let buffer = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+            for (const line of lines) {
+              if (line.trim() === "") continue;
+              
+              if (line.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (data.type === "progress") {
+                    setBatchProgress({
+                      progress: data.progress,
+                      current: data.current,
+                      total: data.total,
+                      translated: data.translated,
+                    });
+                } else if (data.type === "complete") {
+                  setBatchSummary(data.data);
+                  setBatchProgress(null);
+                  toast.success(
+                    `Đã cập nhật ${data.data.translatedCount ?? 0} bản dịch bằng ${providerLabel}`,
+                  );
+                  router.refresh();
+                  setBatchDialogOpen(false);
+                  setSelectedIds(new Set());
+                  } else if (data.type === "error") {
+                    throw new Error(data.error || "Đã xảy ra lỗi khi dịch");
+                  }
+                } catch (e) {
+                  console.error("Error parsing stream data:", e, line);
+                }
+              }
+            }
+          }
+
+          // Process any remaining buffer
+          if (buffer.trim() && buffer.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(buffer.slice(6));
+              if (data.type === "complete") {
+                setBatchSummary(data.data);
+                setBatchProgress(null);
+                toast.success(
+                  `Đã cập nhật ${data.data.translatedCount ?? 0} bản dịch bằng ${providerLabel}`,
+                );
+                router.refresh();
+                setBatchDialogOpen(false);
+                setSelectedIds(new Set());
+              }
+            } catch (e) {
+              console.error("Error parsing final buffer:", e);
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
     } catch (error) {
-      setBatchError(
-        error instanceof Error ? error.message : "Không thể dịch hàng loạt. Vui lòng thử lại.",
-      );
+      const message =
+        error instanceof Error ? error.message : "Không thể dịch hàng loạt. Vui lòng thử lại.";
+      setBatchError(message);
+      setBatchProgress(null);
+      toast.error(message);
     } finally {
       setBatchTranslating(false);
     }
@@ -473,12 +567,12 @@ export function PoEntriesPanel({ entries, filename, fileId, language }: Props) {
                       ) : null}
                     </td>
                     <td className="max-w-[120px] px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
                           title="Sửa"
                           onClick={() => openEdit(entry)}
-                          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-white/10 text-slate-200 hover:border-white/40"
+                          className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-white/10 text-slate-200 transition hover:border-white/40"
                         >
                           <Pencil className="size-3" />
                         </button>
@@ -486,7 +580,7 @@ export function PoEntriesPanel({ entries, filename, fileId, language }: Props) {
                           type="button"
                           title="Xem chi tiết"
                           onClick={() => openFullDetail(entry)}
-                          className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-white/40"
+                          className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200 transition hover:border-white/40"
                         >
                           <BookOpenCheck className="size-3" /> #{start + idx + 1}
                         </button>
@@ -591,6 +685,31 @@ export function PoEntriesPanel({ entries, filename, fileId, language }: Props) {
                 Ghi đè các dòng đã có msgstr
               </label>
               {batchError ? <p className="text-sm text-rose-400">{batchError}</p> : null}
+              {batchProgress ? (
+                <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4">
+                  <div className="mb-3 flex items-center justify-between text-sm">
+                    <span className="font-semibold text-slate-300">Tiến trình dịch</span>
+                    <span className="text-sky-400">
+                      {batchProgress.progress}%
+                    </span>
+                  </div>
+                  <div className="mb-2 h-3 w-full overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="h-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-300 ease-out"
+                      style={{ width: `${batchProgress.progress}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>
+                      Đã xử lý: <strong className="text-slate-300">{batchProgress.current}</strong> /{" "}
+                      <strong className="text-slate-300">{batchProgress.total}</strong> bản ghi
+                    </span>
+                    <span>
+                      Đã dịch: <strong className="text-sky-400">{batchProgress.translated}</strong>
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               {batchSummary ? (
                 <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 text-xs text-slate-300">
                   <p>Kết quả:</p>

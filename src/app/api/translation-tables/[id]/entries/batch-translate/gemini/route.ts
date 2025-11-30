@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { GEMINI_CHARACTER_LIMIT, GEMINI_MAX_TEXTS_PER_REQUEST } from "@/lib/constants";
 import { GeminiError, translateTextsWithGemini } from "@/lib/gemini";
+import { requireAuth, createAuthErrorResponse } from "@/lib/middleware/auth";
+import { requirePermission, createRBACErrorResponse } from "@/lib/middleware/rbac";
 
 type RouteContext = {
   params: Promise<{
@@ -45,6 +47,12 @@ export async function POST(request: Request, { params }: RouteContext) {
     typeof payload.sourceLang === "string" ? payload.sourceLang.trim().toUpperCase() : undefined;
   const overwriteExisting = Boolean(payload.overwriteExisting);
 
+  const authResult = await requireAuth();
+  if (!authResult.authenticated || !authResult.user) {
+    return createAuthErrorResponse(authResult);
+  }
+  const user = authResult.user;
+
   const [entries, table] = await Promise.all([
     prisma.translationEntry.findMany({
       where: {
@@ -59,9 +67,31 @@ export async function POST(request: Request, { params }: RouteContext) {
         name: true,
         language: true,
         description: true,
+        projectId: true,
+        project: {
+          select: {
+            isPublic: true,
+          },
+        },
       },
     }),
   ]);
+
+  if (!table) {
+    return NextResponse.json(
+      { error: "Bảng dịch không tồn tại" },
+      { status: 404 },
+    );
+  }
+
+  const permissionResult = requirePermission(
+    user,
+    "use_ai_translate",
+    table.projectId || undefined,
+  );
+  if (!permissionResult.authorized) {
+    return createRBACErrorResponse(permissionResult);
+  }
 
   const buildEntryContext = (entry: (typeof entries)[number]) => {
     const parts = [
@@ -159,6 +189,30 @@ export async function POST(request: Request, { params }: RouteContext) {
       }),
     ),
   );
+
+  if (updates.length > 0) {
+    const { getClientIp, getUserAgent } = await import("@/lib/auth");
+    const ipAddress = getClientIp(request);
+    const userAgent = getUserAgent(request);
+
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "translation_entries_batch_translated",
+        resourceType: "translation_entry",
+        resourceId: id,
+        details: {
+          tableId: id,
+          projectId: table.projectId,
+          entryCount: updates.length,
+          provider: "gemini",
+          overwriteExisting,
+        },
+        ipAddress,
+        userAgent,
+      },
+    });
+  }
 
   return NextResponse.json({
     data: {

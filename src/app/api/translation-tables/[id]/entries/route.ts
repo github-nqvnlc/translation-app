@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, createAuthErrorResponse } from "@/lib/middleware/auth";
+import { requirePermission, createRBACErrorResponse } from "@/lib/middleware/rbac";
 import { Role } from "@prisma/client";
 
 type RouteContext = {
@@ -72,20 +73,11 @@ export async function GET(_: NextRequest, { params }: RouteContext) {
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
   try {
-    // Authentication and permission check
-    const { requireAuthAndPermission } = await import("@/lib/middleware/rbac");
-    const permissionResult = await requireAuthAndPermission("create_entries");
-    if (permissionResult.error) {
-      return permissionResult.error;
+    const authResult = await requireAuth();
+    if (!authResult.authenticated || !authResult.user) {
+      return createAuthErrorResponse(authResult);
     }
-
-    const user = permissionResult.user;
-    if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    const user = authResult.user;
 
     const { id } = await params;
 
@@ -109,19 +101,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       );
     }
 
-    // Check access permission
-    const isAdmin = user.systemRole === Role.ADMIN;
-    const isPublicProject = table.project?.isPublic || false;
-    const userProjectIds = user.projectRoles.map((pr) => pr.projectId);
-    const hasProjectAccess = table.projectId
-      ? userProjectIds.includes(table.projectId)
-      : false;
-
-    if (!isAdmin && !isPublicProject && !hasProjectAccess) {
-      return NextResponse.json(
-        { error: "Bạn không có quyền thêm entries vào bảng dịch này" },
-        { status: 403 }
-      );
+    const permissionResult = requirePermission(
+      user,
+      "create_entries",
+      table.projectId || undefined,
+    );
+    if (!permissionResult.authorized) {
+      return createRBACErrorResponse(permissionResult);
     }
 
     const body = await request.json();
@@ -158,6 +144,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         resourceId: created.id.toString(),
         details: {
           tableId: id,
+          projectId: table.projectId,
+          entryId: created.id,
+          entryCount: 1,
         },
         ipAddress,
         userAgent,
